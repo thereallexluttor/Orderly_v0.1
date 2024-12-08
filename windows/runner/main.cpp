@@ -30,7 +30,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Point origin(0, 0);
-  Win32Window::Size size(screenWidth, screenHeight); // Tamaño completo de la pantalla
+  Win32Window::Size size(screenWidth, screenHeight-50); // Tamaño completo de la pantalla
 
   if (!window.Create(L"orderly", origin, size)) {
     return EXIT_FAILURE;

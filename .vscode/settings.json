@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/Users/hedin/Documents/Orderly/orderly/windows"
+    "cmake.sourceDirectory": "C:/Users/hedin/Documents/Orderly/orderly/windows",
+    "C_Cpp.errorSquiggles": "disabled"
 }
