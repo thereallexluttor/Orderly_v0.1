@@ -23,23 +23,39 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Title
-                const Text(
-                  'Login!',
-                  style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w200,
-                      fontFamily: "Roboto"),
+                // Encerrar en un contenedor con bordes negros y menos ancho
+                Container(
+                  width: 400, // Define el ancho máximo del cuadro
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(
+                        color: const Color.fromARGB(167, 194, 194, 194),
+                        width: 2.0),
+                    borderRadius: BorderRadius.circular(
+                        8), // Bordes redondeados opcionales
+                  ),
+                  padding: const EdgeInsets.all(16.0), // Espaciado interno
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 24),
+
+                      // Title
+                      const Text(
+                        'Login!',
+                        style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w200,
+                            fontFamily: "Roboto"),
+                      ),
+
+                      const SizedBox(height: 33),
+
+                      // Username Field
+                      LoginForm(),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-
-                // Username Field
-                LoginForm(),
-                const SizedBox(height: 16),
-
-                // Remember me and Forgot Password
-
-                const SizedBox(height: 24),
               ],
             ),
           ),

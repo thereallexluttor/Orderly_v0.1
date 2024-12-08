@@ -27,7 +27,7 @@ class _LoginFormState extends State<LoginForm> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 33),
 
             // Password Field
             TextFormField(
