@@ -4,31 +4,35 @@ class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _LoginFormState createState() => _LoginFormState();
+  LoginFormState createState() => LoginFormState();
 }
 
-class _LoginFormState extends State<LoginForm> {
-  bool _obscureText = true; // Controla si la contraseña está oculta o visible
+class LoginFormState extends State<LoginForm> {
+  bool _obscureText = true;
+  bool _rememberMe = false;
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: ConstrainedBox(
-        constraints:
-            const BoxConstraints(maxWidth: 450), // Define un ancho máximo
+        constraints: const BoxConstraints(maxWidth: 450),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Username Field
             TextFormField(
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Username',
+                labelStyle: TextStyle(
+                  fontFamily: 'Roboto',
+                  color: Colors.grey,
+                  fontWeight: FontWeight.normal,
+                ),
                 border: OutlineInputBorder(
                   borderSide:
-                      const BorderSide(color: Color.fromARGB(255, 243, 0, 0)),
-                  borderRadius: BorderRadius.circular(4),
+                      BorderSide(color: Color.fromARGB(255, 128, 128, 128)),
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
                 ),
               ),
             ),
@@ -39,8 +43,15 @@ class _LoginFormState extends State<LoginForm> {
               obscureText: _obscureText,
               decoration: InputDecoration(
                 labelText: 'Password',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
+                labelStyle: const TextStyle(
+                  fontFamily: 'Roboto',
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w300,
+                ),
+                border: const OutlineInputBorder(
+                  borderSide:
+                      BorderSide(color: Color.fromARGB(255, 128, 128, 128)),
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
@@ -48,7 +59,7 @@ class _LoginFormState extends State<LoginForm> {
                   ),
                   onPressed: () {
                     setState(() {
-                      _obscureText = !_obscureText; // Alterna la visibilidad
+                      _obscureText = !_obscureText;
                     });
                   },
                 ),
@@ -63,42 +74,58 @@ class _LoginFormState extends State<LoginForm> {
                 Row(
                   children: [
                     Checkbox(
-                      value: false,
-                      onChanged: (value) {},
+                      value: _rememberMe,
+                      onChanged: (value) {
+                        setState(() {
+                          _rememberMe = value!;
+                        });
+                      },
                     ),
-                    const Text('Remember me'),
+                    const Text(
+                      'Remember me',
+                      style: TextStyle(fontWeight: FontWeight.w300),
+                    ),
                   ],
                 ),
                 TextButton(
                   onPressed: () {},
-                  child: const Text('Forgot Password?'),
+                  child: const Text(
+                    'Forgot Password?',
+                    style: TextStyle(fontWeight: FontWeight.w300),
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 24),
 
-            // Login Button
-            ElevatedButton(
-              onPressed: () {
-                // Implement login logic here
-                print('Login button pressed');
-              },
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(100, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  side: const BorderSide(
-                    color:
-                        Color.fromARGB(255, 199, 199, 199), // Color del borde
-                    width: 1.0, // Ancho del borde
+            // Login Button with Animation
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Implement login logic here
+                  print('Login button pressed');
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(100, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: const BorderSide(
+                      color: Color.fromARGB(255, 199, 199, 199),
+                      width: 1.0,
+                    ),
+                  ),
+                  backgroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Login',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w300,
                   ),
                 ),
-                backgroundColor: Colors.white, // Fondo blanco
-              ),
-              child: const Text(
-                'Login',
-                style: TextStyle(color: Colors.black), // Texto negro
               ),
             ),
           ],
