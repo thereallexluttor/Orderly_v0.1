@@ -35,12 +35,12 @@ class LoginScreen extends StatelessWidget {
                         8), // Bordes redondeados opcionales
                   ),
                   padding: const EdgeInsets.all(16.0), // Espaciado interno
-                  child: Column(
+                  child: const Column(
                     children: [
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24),
 
                       // Title
-                      const Text(
+                      Text(
                         'Login!',
                         style: TextStyle(
                             fontSize: 20,
@@ -48,11 +48,11 @@ class LoginScreen extends StatelessWidget {
                             fontFamily: "Roboto"),
                       ),
 
-                      const SizedBox(height: 33),
+                      SizedBox(height: 33),
 
                       // Username Field
                       LoginForm(),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16),
                     ],
                   ),
                 ),
