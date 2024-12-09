@@ -56,6 +56,14 @@ class LoginScreen extends StatelessWidget {
                             fontWeight: FontWeight.w200,
                             fontFamily: "Roboto"),
                       ),
+                      SizedBox(height: 3),
+                      Text(
+                        'Please enter your credentials below to continue.',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w200,
+                            fontFamily: "Roboto"),
+                      ),
                       SizedBox(height: 33),
 
                       // Username Field
