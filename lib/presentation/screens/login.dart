@@ -47,7 +47,6 @@ class LoginScreen extends StatelessWidget {
                             fontWeight: FontWeight.w200,
                             fontFamily: "Roboto"),
                       ),
-
                       SizedBox(height: 33),
 
                       // Username Field
