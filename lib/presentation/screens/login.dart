@@ -29,10 +29,19 @@ class LoginScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(
-                        color: const Color.fromARGB(167, 194, 194, 194),
-                        width: 2.0),
+                        color: const Color.fromARGB(0, 194, 194, 194),
+                        width: 1.0),
                     borderRadius: BorderRadius.circular(
-                        8), // Bordes redondeados opcionales
+                        4), // Bordes redondeados opcionales
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1), // Sombra ligera
+                        spreadRadius: 3,
+                        blurRadius: 6,
+                        offset:
+                            const Offset(0, 0), // Desplazamiento de la sombra
+                      ),
+                    ],
                   ),
                   padding: const EdgeInsets.all(16.0), // Espaciado interno
                   child: const Column(

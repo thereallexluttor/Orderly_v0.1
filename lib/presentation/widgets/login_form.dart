@@ -26,6 +26,8 @@ class _LoginFormState extends State<LoginForm> {
               decoration: InputDecoration(
                 labelText: 'Username',
                 border: OutlineInputBorder(
+                  borderSide:
+                      const BorderSide(color: Color.fromARGB(255, 243, 0, 0)),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -87,7 +89,8 @@ class _LoginFormState extends State<LoginForm> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                   side: const BorderSide(
-                    color: Colors.grey, // Color del borde
+                    color:
+                        Color.fromARGB(255, 199, 199, 199), // Color del borde
                     width: 1.0, // Ancho del borde
                   ),
                 ),
