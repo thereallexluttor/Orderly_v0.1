@@ -1,15 +1,50 @@
 import 'package:flutter/material.dart';
+import '../controllers/login_controller.dart';
 
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key});
+  final LoginController controller;
+
+  const LoginForm({
+    required this.controller,
+    super.key,
+  });
 
   @override
   LoginFormState createState() => LoginFormState();
 }
 
 class LoginFormState extends State<LoginForm> {
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscureText = true;
-  bool _rememberMe = false;
+  bool _isLoading = false;
+
+  Future<void> _handleLogin() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await widget.controller.login(
+        _usernameController.text,
+        _passwordController.text,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Login successful!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +55,11 @@ class LoginFormState extends State<LoginForm> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Username Field
             TextFormField(
+              controller: _usernameController,
               decoration: const InputDecoration(
                 labelText: 'Username',
                 labelStyle: TextStyle(
-                  fontFamily: 'Roboto',
                   color: Colors.grey,
                   fontWeight: FontWeight.normal,
                 ),
@@ -36,15 +70,14 @@ class LoginFormState extends State<LoginForm> {
                 ),
               ),
             ),
-            const SizedBox(height: 33),
+            const SizedBox(height: 23),
 
-            // Password Field
             TextFormField(
+              controller: _passwordController,
               obscureText: _obscureText,
               decoration: InputDecoration(
                 labelText: 'Password',
                 labelStyle: const TextStyle(
-                  fontFamily: 'Roboto',
                   color: Colors.grey,
                   fontWeight: FontWeight.w300,
                 ),
@@ -55,59 +88,19 @@ class LoginFormState extends State<LoginForm> {
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureText ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _obscureText = !_obscureText;
-                    });
-                  },
+                      _obscureText ? Icons.visibility : Icons.visibility_off),
+                  onPressed: () => setState(() => _obscureText = !_obscureText),
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Remember me and Forgot Password
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _rememberMe,
-                      onChanged: (value) {
-                        setState(() {
-                          _rememberMe = value!;
-                        });
-                      },
-                    ),
-                    const Text(
-                      'Remember me',
-                      style: TextStyle(fontWeight: FontWeight.w300),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () {},
-                  child: const Text(
-                    'Forgot Password?',
-                    style: TextStyle(fontWeight: FontWeight.w300),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Login Button with Animation
+            // Login Button
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
               child: ElevatedButton(
-                onPressed: () {
-                  // Implement login logic here
-                  print('Login button pressed');
-                },
+                onPressed: _isLoading ? null : _handleLogin,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(100, 50),
                   shape: RoundedRectangleBorder(
@@ -119,18 +112,27 @@ class LoginFormState extends State<LoginForm> {
                   ),
                   backgroundColor: Colors.white,
                 ),
-                child: const Text(
-                  'Login',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w300,
-                  ),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text(
+                        'Login',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 }

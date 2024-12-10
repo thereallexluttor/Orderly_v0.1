@@ -1,8 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:orderly/presentation/widgets/login_form.dart';
+import 'package:orderly/presentation/controllers/login_controller.dart';
+import 'package:orderly/data/repositories/auth_reporitory.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  late final LoginController _loginController;
+
+  @override
+  void initState() {
+    super.initState();
+    _loginController =
+        LoginController(AuthRepository(Supabase.instance.client));
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +66,7 @@ class LoginScreen extends StatelessWidget {
                     ],
                   ),
                   padding: const EdgeInsets.all(16.0), // Espaciado interno
-                  child: const Column(
+                  child: Column(
                     children: [
                       SizedBox(height: 24),
 
@@ -60,14 +82,16 @@ class LoginScreen extends StatelessWidget {
                       Text(
                         'Please enter your credentials below to continue.',
                         style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w200,
-                            fontFamily: "Roboto"),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       SizedBox(height: 33),
 
                       // Username Field
-                      LoginForm(),
+                      LoginForm(
+                        controller: _loginController,
+                      ),
                       SizedBox(height: 16),
                     ],
                   ),
