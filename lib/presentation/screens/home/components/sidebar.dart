@@ -14,17 +14,25 @@ class Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 70,
+      width: 67,
       decoration: const BoxDecoration(
         color: Colors.black87,
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(8),
           bottomRight: Radius.circular(8),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            spreadRadius: 2,
+            offset: Offset(1, 0),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          const SizedBox(height: 33),
+          const SizedBox(height: 63),
           _buildNavigationButtons(),
           const Spacer(),
           SidebarButton(
