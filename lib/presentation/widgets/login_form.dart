@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../controllers/login_controller.dart';
+import '../screens/homepage.dart';
 
 class LoginForm extends StatefulWidget {
   final LoginController controller;
@@ -29,8 +30,9 @@ class LoginFormState extends State<LoginForm> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          HomePage.routeName,
+          (route) => false,
         );
       }
     } catch (e) {

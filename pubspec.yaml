@@ -22,6 +22,7 @@ flutter:
   uses-material-design: true
   assets:
     - lib\assets\logos\logo_colored.png
+    - lib\assets\logos\logo_colored_white.png
     - .env
   fonts:
     - family: Roboto

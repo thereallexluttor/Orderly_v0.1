@@ -68,31 +68,31 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.all(16.0), // Espaciado interno
                   child: Column(
                     children: [
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
                       // Title
-                      Text(
+                      const Text(
                         'Login!',
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w200,
                             fontFamily: "Roboto"),
                       ),
-                      SizedBox(height: 3),
-                      Text(
+                      const SizedBox(height: 3),
+                      const Text(
                         'Please enter your credentials below to continue.',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      SizedBox(height: 33),
+                      const SizedBox(height: 33),
 
                       // Username Field
                       LoginForm(
                         controller: _loginController,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
