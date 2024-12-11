@@ -22,6 +22,12 @@ flutter:
   uses-material-design: true
   assets:
     - lib\assets\logos\logo_colored.png
+    - lib\assets\icons\menu.png
+    - lib\assets\icons\dashboard.png
+    - lib\assets\icons\inventory.png
+    - lib\assets\icons\reservation.png
+    - lib\assets\icons\staff.png
+    - lib\assets\icons\table.png
     - lib\assets\logos\logo_colored_white.png
     - .env
   fonts:
