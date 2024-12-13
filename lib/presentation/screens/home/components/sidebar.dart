@@ -38,7 +38,12 @@ class Sidebar extends StatelessWidget {
           SidebarButton(
             icon: Icons.logout,
             label: 'Logout',
-            onTap: () {},
+            onTap: () {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login',
+                (route) => false,
+              );
+            },
             isSelected: false,
           ),
           const SizedBox(height: 20),
