@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'components/sidebar.dart';
+import '../menu/menu_screen.dart';
 
 class HomePage extends StatefulWidget {
   static const String routeName = '/home';
@@ -18,7 +19,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _getSelectedScreen() {
-    return Center(child: Text('$_selectedItem Screen'));
+    switch (_selectedItem) {
+      case 'Menu':
+        return const MenuScreen();
+      default:
+        return Center(child: Text('$_selectedItem Screen'));
+    }
   }
 
   @override
