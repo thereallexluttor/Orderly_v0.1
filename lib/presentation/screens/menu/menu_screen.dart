@@ -187,69 +187,79 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Widget _buildImageUploadField() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(8),
         color: Colors.grey[50],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
+          Text(
             'Food Image',
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.normal,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[800],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           if (_imageFile != null)
-            Container(
-              height: 200,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.5),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    _imageFile!,
+                    fit: BoxFit.cover,
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: Image.file(
-                  _imageFile!,
-                  fit: BoxFit.cover,
                 ),
               ),
             ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: _pickImage,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 16),
               backgroundColor: Colors.white,
+              foregroundColor: Colors.grey[800],
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: Colors.grey[300]!),
               ),
+              elevation: 0,
             ),
-            icon: const Icon(Icons.image),
-            label: const Text('Select Image'),
+            icon: const Icon(Icons.image_outlined),
+            label: const Text(
+              'Select Image',
+              style: TextStyle(fontSize: 16),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           TextFormField(
             controller: _photoController,
             decoration: InputDecoration(
               labelText: 'Photo URL (optional)',
               hintText: 'Or enter image URL manually',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
               filled: true,
               fillColor: Colors.white,
+              contentPadding: const EdgeInsets.all(16),
             ),
           ),
         ],
@@ -261,18 +271,18 @@ class _MenuScreenState extends State<MenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
                 side: BorderSide(color: Colors.grey[300]!),
               ),
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(24.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -310,17 +320,17 @@ class _MenuScreenState extends State<MenuScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
             if (_showForm)
               Expanded(
                 child: Card(
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                     side: BorderSide(color: Colors.grey[300]!),
                   ),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(32.0),
                     child: Form(
                       key: _formKey,
                       child: Column(
@@ -356,13 +366,13 @@ class _MenuScreenState extends State<MenuScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           _buildTextField(
                             controller: _descController,
                             label: 'Description',
                             maxLines: 3,
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           Row(
                             children: [
                               Expanded(
@@ -415,7 +425,7 @@ class _MenuScreenState extends State<MenuScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
                           Row(
                             children: [
                               Expanded(
@@ -486,7 +496,6 @@ class _MenuScreenState extends State<MenuScreen> {
     );
   }
 
-  // Método auxiliar para crear campos de texto con estilo consistente
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -500,21 +509,24 @@ class _MenuScreenState extends State<MenuScreen> {
         labelText: label,
         labelStyle: TextStyle(
           color: Colors.grey[700],
+          fontSize: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
         filled: true,
         fillColor: Colors.grey[50],
+        contentPadding: const EdgeInsets.all(16),
       ),
       keyboardType: keyboardType,
       validator: validator,
       maxLines: maxLines,
+      style: const TextStyle(fontSize: 16),
     );
   }
 
