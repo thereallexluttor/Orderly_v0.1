@@ -186,36 +186,74 @@ class _MenuScreenState extends State<MenuScreen> {
   }
 
   Widget _buildImageUploadField() {
-    return Column(
-      children: [
-        if (_imageFile != null)
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Image.file(
-              _imageFile!,
-              fit: BoxFit.cover,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
+        color: Colors.grey[50],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Food Image',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.normal,
             ),
           ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: _pickImage,
-          icon: const Icon(Icons.image),
-          label: const Text('Select Image'),
-        ),
-        const SizedBox(height: 10),
-        TextFormField(
-          controller: _photoController,
-          decoration: const InputDecoration(
-            labelText: 'Photo URL (optional)',
-            hintText: 'Or enter image URL manually',
+          const SizedBox(height: 16),
+          if (_imageFile != null)
+            Container(
+              height: 200,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.5),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.file(
+                  _imageFile!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: _pickImage,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+            icon: const Icon(Icons.image),
+            label: const Text('Select Image'),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _photoController,
+            decoration: InputDecoration(
+              labelText: 'Photo URL (optional)',
+              hintText: 'Or enter image URL manually',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -223,117 +261,221 @@ class _MenuScreenState extends State<MenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(24.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _showForm = !_showForm;
-                });
-              },
-              child: Text(_showForm ? 'Hide Form' : 'Show Form'),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: BorderSide(color: Colors.grey[300]!),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Add New Menu Item',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showForm = !_showForm;
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _showForm
+                            ? const Color.fromARGB(255, 250, 250, 250)
+                            : Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        elevation: 0,
+                      ),
+                      icon: Icon(_showForm ? Icons.close : Icons.add),
+                      label: Text(_showForm ? 'Close Form' : 'Add Item'),
+                    ),
+                  ],
+                ),
+              ),
             ),
+            const SizedBox(height: 20),
             if (_showForm)
               Expanded(
-                child: SingleChildScrollView(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _foodIdController,
-                          decoration:
-                              const InputDecoration(labelText: 'Food ID'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a Food ID';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: _nameController,
-                          decoration:
-                              const InputDecoration(labelText: 'Food Name'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a food name';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: _descController,
-                          decoration:
-                              const InputDecoration(labelText: 'Description'),
-                          maxLines: 3,
-                        ),
-                        TextFormField(
-                          controller: _businessIdController,
-                          decoration:
-                              const InputDecoration(labelText: 'Business ID'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a Business ID';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: _rateController,
-                          decoration: const InputDecoration(labelText: 'Rate'),
-                          keyboardType: TextInputType.number,
-                        ),
-                        _buildImageUploadField(),
-                        TextFormField(
-                          controller: _priceController,
-                          decoration: const InputDecoration(labelText: 'Price'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a price';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: _discountController,
-                          decoration:
-                              const InputDecoration(labelText: 'Discount'),
-                          keyboardType: TextInputType.number,
-                        ),
-                        TextFormField(
-                          controller: _categoryController,
-                          decoration:
-                              const InputDecoration(labelText: 'Category'),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a category';
-                            }
-                            return null;
-                          },
-                        ),
-                        TextFormField(
-                          controller: _stockController,
-                          decoration: const InputDecoration(labelText: 'Stock'),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter stock quantity';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _submitForm,
-                          child: _isLoading
-                              ? const CircularProgressIndicator()
-                              : const Text('Submit'),
-                        ),
-                      ],
+                child: Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _foodIdController,
+                                  label: 'Food ID',
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter a Food ID';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _nameController,
+                                  label: 'Food Name',
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter a food name';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            controller: _descController,
+                            label: 'Description',
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _businessIdController,
+                                  label: 'Business ID',
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter a Business ID';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _rateController,
+                                  label: 'Rate',
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          _buildImageUploadField(),
+                          const SizedBox(height: 24),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _priceController,
+                                  label: 'Price',
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter a price';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _discountController,
+                                  label: 'Discount',
+                                  keyboardType: TextInputType.number,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _categoryController,
+                                  label: 'Category',
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter a category';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: _stockController,
+                                  label: 'Stock',
+                                  keyboardType: TextInputType.number,
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Please enter stock quantity';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : _submitForm,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    const Color.fromARGB(255, 255, 255, 255),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                  side: BorderSide(color: Colors.grey[300]!),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: _isLoading
+                                  ? const CircularProgressIndicator(
+                                      color: Colors.grey,
+                                    )
+                                  : Text(
+                                      'Save Menu Item',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.normal,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -341,6 +483,38 @@ class _MenuScreenState extends State<MenuScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // Método auxiliar para crear campos de texto con estilo consistente
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(
+          color: Colors.grey[700],
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(4),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        filled: true,
+        fillColor: Colors.grey[50],
+      ),
+      keyboardType: keyboardType,
+      validator: validator,
+      maxLines: maxLines,
     );
   }
 
