@@ -191,7 +191,7 @@ class _MenuScreenState extends State<MenuScreen> {
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
         borderRadius: BorderRadius.circular(8),
-        color: Colors.grey[50],
+        color: Colors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,13 +270,16 @@ class _MenuScreenState extends State<MenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Card(
-              elevation: 0,
+              elevation: 2,
+              shadowColor: Colors.black.withOpacity(0.1),
+              color: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
                 side: BorderSide(color: Colors.grey[300]!),
@@ -300,15 +303,14 @@ class _MenuScreenState extends State<MenuScreen> {
                         });
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _showForm
-                            ? const Color.fromARGB(255, 250, 250, 250)
-                            : Colors.white,
+                        backgroundColor:
+                            _showForm ? Colors.white : Colors.white,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 12,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(8),
                           side: BorderSide(color: Colors.grey[300]!),
                         ),
                         elevation: 0,
@@ -324,7 +326,9 @@ class _MenuScreenState extends State<MenuScreen> {
             if (_showForm)
               Expanded(
                 child: Card(
-                  elevation: 0,
+                  elevation: 4,
+                  shadowColor: Colors.black.withOpacity(0.1),
+                  color: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: BorderSide(color: Colors.grey[300]!),
@@ -520,7 +524,7 @@ class _MenuScreenState extends State<MenuScreen> {
           borderSide: BorderSide(color: Colors.grey[300]!),
         ),
         filled: true,
-        fillColor: Colors.grey[50],
+        fillColor: Colors.white,
         contentPadding: const EdgeInsets.all(16),
       ),
       keyboardType: keyboardType,
