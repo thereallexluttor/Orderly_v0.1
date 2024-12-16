@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -28,6 +30,84 @@ class _MenuScreenState extends State<MenuScreen> {
   final _categoryController = TextEditingController();
   final _stockController = TextEditingController();
 
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (image != null) {
+      setState(() {
+        _imageFile = File(image.path);
+      });
+    }
+  }
+
+  Future<String?> _uploadImage() async {
+    if (_imageFile == null) return null;
+
+    try {
+      final String fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String path = 'menu_images/$fileName';
+
+      // Convertir el archivo a bytes
+      final bytes = await _imageFile!.readAsBytes();
+
+      // Subir la imagen al bucket con mejor manejo de errores
+      try {
+        await _supabase.storage.from('orderly_menu').uploadBinary(
+              path,
+              bytes,
+              fileOptions: const FileOptions(
+                contentType: 'image/jpeg',
+              ),
+            );
+      } catch (storageError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Storage Error: ${storageError.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return null;
+      }
+
+      // Obtener la URL pública de la imagen
+      try {
+        final String imageUrl =
+            _supabase.storage.from('orderly_menu').getPublicUrl(path);
+        return imageUrl;
+      } catch (urlError) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('URL Error: ${urlError.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return null;
+      }
+    } catch (e) {
+      print('Error detallado: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error uploading image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -35,6 +115,12 @@ class _MenuScreenState extends State<MenuScreen> {
       });
 
       try {
+        // Subir imagen si existe
+        String? imageUrl;
+        if (_imageFile != null) {
+          imageUrl = await _uploadImage();
+        }
+
         // Create data map
         final foodData = {
           'food_id': int.tryParse(_foodIdController.text),
@@ -42,7 +128,8 @@ class _MenuScreenState extends State<MenuScreen> {
           'food_desc': _descController.text,
           'business_id': _businessIdController.text,
           'rate': double.tryParse(_rateController.text),
-          'food_photo': _photoController.text,
+          'food_photo': imageUrl ??
+              _photoController.text, // Usar la URL de la imagen subida
           'food_price': double.tryParse(_priceController.text),
           'food_discount': double.tryParse(_discountController.text),
           'food_category': _categoryController.text,
@@ -96,6 +183,40 @@ class _MenuScreenState extends State<MenuScreen> {
     _discountController.clear();
     _categoryController.clear();
     _stockController.clear();
+  }
+
+  Widget _buildImageUploadField() {
+    return Column(
+      children: [
+        if (_imageFile != null)
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Image.file(
+              _imageFile!,
+              fit: BoxFit.cover,
+            ),
+          ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          onPressed: _pickImage,
+          icon: const Icon(Icons.image),
+          label: const Text('Select Image'),
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _photoController,
+          decoration: const InputDecoration(
+            labelText: 'Photo URL (optional)',
+            hintText: 'Or enter image URL manually',
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -165,11 +286,7 @@ class _MenuScreenState extends State<MenuScreen> {
                           decoration: const InputDecoration(labelText: 'Rate'),
                           keyboardType: TextInputType.number,
                         ),
-                        TextFormField(
-                          controller: _photoController,
-                          decoration:
-                              const InputDecoration(labelText: 'Photo URL'),
-                        ),
+                        _buildImageUploadField(),
                         TextFormField(
                           controller: _priceController,
                           decoration: const InputDecoration(labelText: 'Price'),
