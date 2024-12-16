@@ -1,18 +1,244 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class MenuScreen extends StatelessWidget {
+class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
 
   @override
+  State<MenuScreen> createState() => _MenuScreenState();
+}
+
+class _MenuScreenState extends State<MenuScreen> {
+  final _formKey = GlobalKey<FormState>();
+  bool _showForm = false;
+  bool _isLoading = false;
+
+  // Get Supabase client
+  final _supabase = Supabase.instance.client;
+
+  // Controllers for form fields
+  final _foodIdController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _descController = TextEditingController();
+  final _businessIdController = TextEditingController();
+  final _rateController = TextEditingController();
+  final _photoController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _discountController = TextEditingController();
+  final _categoryController = TextEditingController();
+  final _stockController = TextEditingController();
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Create data map
+        final foodData = {
+          'food_id': int.tryParse(_foodIdController.text),
+          'food_name': _nameController.text,
+          'food_desc': _descController.text,
+          'business_id': _businessIdController.text,
+          'rate': double.tryParse(_rateController.text),
+          'food_photo': _photoController.text,
+          'food_price': double.tryParse(_priceController.text),
+          'food_discount': double.tryParse(_discountController.text),
+          'food_category': _categoryController.text,
+          'food_stock': int.tryParse(_stockController.text),
+        };
+
+        // Insert data into Supabase
+        final response =
+            await _supabase.from('food_table').insert(foodData).select();
+
+        // Clear form after successful submission
+        _clearForm();
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Food item added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
+    }
+  }
+
+  void _clearForm() {
+    _foodIdController.clear();
+    _nameController.clear();
+    _descController.clear();
+    _businessIdController.clear();
+    _rateController.clear();
+    _photoController.clear();
+    _priceController.clear();
+    _discountController.clear();
+    _categoryController.clear();
+    _stockController.clear();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: const Center(
-        child: Text(
-          'Menu Screen Content',
-          style: TextStyle(fontSize: 24),
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _showForm = !_showForm;
+                });
+              },
+              child: Text(_showForm ? 'Hide Form' : 'Show Form'),
+            ),
+            if (_showForm)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _foodIdController,
+                          decoration:
+                              const InputDecoration(labelText: 'Food ID'),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a Food ID';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: _nameController,
+                          decoration:
+                              const InputDecoration(labelText: 'Food Name'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a food name';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: _descController,
+                          decoration:
+                              const InputDecoration(labelText: 'Description'),
+                          maxLines: 3,
+                        ),
+                        TextFormField(
+                          controller: _businessIdController,
+                          decoration:
+                              const InputDecoration(labelText: 'Business ID'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a Business ID';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: _rateController,
+                          decoration: const InputDecoration(labelText: 'Rate'),
+                          keyboardType: TextInputType.number,
+                        ),
+                        TextFormField(
+                          controller: _photoController,
+                          decoration:
+                              const InputDecoration(labelText: 'Photo URL'),
+                        ),
+                        TextFormField(
+                          controller: _priceController,
+                          decoration: const InputDecoration(labelText: 'Price'),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a price';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: _discountController,
+                          decoration:
+                              const InputDecoration(labelText: 'Discount'),
+                          keyboardType: TextInputType.number,
+                        ),
+                        TextFormField(
+                          controller: _categoryController,
+                          decoration:
+                              const InputDecoration(labelText: 'Category'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter a category';
+                            }
+                            return null;
+                          },
+                        ),
+                        TextFormField(
+                          controller: _stockController,
+                          decoration: const InputDecoration(labelText: 'Stock'),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter stock quantity';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: _isLoading ? null : _submitForm,
+                          child: _isLoading
+                              ? const CircularProgressIndicator()
+                              : const Text('Submit'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _foodIdController.dispose();
+    _nameController.dispose();
+    _descController.dispose();
+    _businessIdController.dispose();
+    _rateController.dispose();
+    _photoController.dispose();
+    _priceController.dispose();
+    _discountController.dispose();
+    _categoryController.dispose();
+    _stockController.dispose();
+    super.dispose();
   }
 }
