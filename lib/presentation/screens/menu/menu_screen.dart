@@ -44,7 +44,7 @@ class _MenuScreenState extends State<MenuScreen> {
         side: BorderSide(color: Colors.grey[300]!),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(15.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -75,7 +75,7 @@ class _MenuScreenState extends State<MenuScreen> {
           borderRadius: BorderRadius.circular(8),
           side: BorderSide(color: Colors.grey[300]!),
         ),
-        elevation: 0,
+        elevation: 1,
       ),
       icon: Icon(_showForm ? Icons.close : Icons.add),
       label: Text(_showForm ? 'Close Form' : 'Add Item'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/menu_form_controller.dart';
 import 'custom_text_field.dart';
 import 'image_upload_field.dart';
+import 'package:flutter/services.dart';
 
 class MenuForm extends StatefulWidget {
   final VoidCallback onClose;
@@ -37,6 +38,8 @@ class _MenuFormState extends State<MenuForm> {
 
         _controller.clearForm();
         _showSuccessMessage();
+
+        widget.onClose();
       } catch (e) {
         _showErrorMessage(e.toString());
       } finally {
@@ -167,8 +170,19 @@ class _MenuFormState extends State<MenuForm> {
         Expanded(
           child: CustomTextField(
             controller: _controller.rateController,
-            label: 'Rate',
+            label: 'Rate (0-5)',
             keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return null; // Rate puede ser opcional
+              }
+              final rate = int.tryParse(value);
+              if (rate == null || rate < 0 || rate > 5) {
+                return 'Rate must be between 0 and 5';
+              }
+              return null;
+            },
+            suffix: const Icon(Icons.star_border),
           ),
         ),
       ],
@@ -181,22 +195,44 @@ class _MenuFormState extends State<MenuForm> {
         Expanded(
           child: CustomTextField(
             controller: _controller.priceController,
-            label: 'Price',
-            keyboardType: TextInputType.number,
+            label: 'Price (\$)',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a price';
               }
+              final price = double.tryParse(value);
+              if (price == null || price < 0) {
+                return 'Please enter a valid price';
+              }
               return null;
             },
+            prefix: const Text('\$'),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: CustomTextField(
             controller: _controller.discountController,
-            label: 'Discount',
+            label: 'Discount (%)',
             keyboardType: TextInputType.number,
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return null; // Descuento puede ser opcional
+              }
+              final discount = int.tryParse(value);
+              if (discount == null || discount < 0 || discount > 100) {
+                return 'Discount must be between 0 and 100';
+              }
+              return null;
+            },
+            suffix: const Text('%'),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
           ),
         ),
       ],
@@ -222,14 +258,22 @@ class _MenuFormState extends State<MenuForm> {
         Expanded(
           child: CustomTextField(
             controller: _controller.stockController,
-            label: 'Stock',
+            label: 'Stock (Units)',
             keyboardType: TextInputType.number,
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter stock quantity';
               }
+              final stock = int.tryParse(value);
+              if (stock == null || stock < 0) {
+                return 'Stock must be a positive number';
+              }
               return null;
             },
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            suffix: const Text('units'),
           ),
         ),
       ],
