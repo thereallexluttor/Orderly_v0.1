@@ -24,16 +24,20 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final response =
-          await supabase.from('food_table').select('food_category, food_photo');
+      // First get all items with their rates
+      final response = await supabase
+          .from('food_table')
+          .select('food_category, food_photo, rate')
+          .order('rate', ascending: false);
 
       if (mounted) {
-        // Group items by category and count them
         final categoryMap = <String, Map<String, dynamic>>{};
 
         for (var item in response as List) {
           final category = item['food_category'].toString();
           if (!categoryMap.containsKey(category)) {
+            // First item of each category will be the one with highest rate
+            // due to our ordering
             categoryMap[category] = {
               'food_category': category,
               'food_photo': item['food_photo'],
