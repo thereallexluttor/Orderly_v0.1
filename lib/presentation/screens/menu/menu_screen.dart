@@ -149,8 +149,9 @@ class _MenuScreenState extends State<MenuScreen> {
                 ),
                 if (selectedCategory != null) ...[
                   const SizedBox(height: 24),
-                  SizedBox(
+                  Container(
                     height: 900,
+                    color: Colors.white,
                     child: CategoryItemsContent(
                       category: selectedCategory!,
                       onClose: () => setState(() => selectedCategory = null),

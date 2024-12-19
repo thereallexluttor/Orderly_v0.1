@@ -85,11 +85,34 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
     }
   }
 
+  Future<Map<String, dynamic>?> _getUpdatedItemData(int foodId) async {
+    try {
+      final response = await supabase.from('food_table').select('''
+            food_id,
+            food_name,
+            food_price,
+            food_photo,
+            food_category,
+            food_description,
+            rate,
+            is_available
+          ''').eq('food_id', foodId).single();
+      return response as Map<String, dynamic>;
+    } catch (e) {
+      print('Error fetching updated item data: $e');
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -118,12 +141,12 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
             child: Row(
               children: [
                 Expanded(
-                  flex: _showEditForm ? 3 : 4,
+                  flex: _showEditForm ? 3 : 5,
                   child: _buildGrid(),
                 ),
                 if (_showEditForm && selectedItem != null)
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border(
@@ -131,6 +154,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
                         ),
                       ),
                       child: MenuForm(
+                        key: ValueKey(selectedItem!['food_id']),
                         initialData: selectedItem,
                         onClose: () {
                           setState(() {
@@ -175,16 +199,22 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
 
     return Card(
       elevation: 0,
-      color: isSelected ? Colors.blue.withOpacity(0.1) : null,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: isSelected ? Colors.blue.withOpacity(0.1) : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(6),
+        side: BorderSide(color: Colors.grey[300]!),
+      ),
       child: InkWell(
-        onTap: () {
-          setState(() {
-            selectedItem = item;
-            _showEditForm = true;
-          });
+        onTap: () async {
+          final updatedItem = await _getUpdatedItemData(item['food_id']);
+          if (mounted) {
+            setState(() {
+              selectedItem = updatedItem ?? item;
+              _showEditForm = true;
+            });
+          }
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -192,7 +222,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
               flex: 3,
               child: ClipRRect(
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
+                    const BorderRadius.vertical(top: Radius.circular(6)),
                 child: item['food_photo'] != null
                     ? Image.network(
                         item['food_photo'],
