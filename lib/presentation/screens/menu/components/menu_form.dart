@@ -110,20 +110,18 @@ class _MenuFormState extends State<MenuForm> {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 0,
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.1),
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: Colors.grey[300]!),
       ),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.3,
-          ),
+        padding: const EdgeInsets.all(32.0),
+        child: Form(
+          key: _controller.formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildBasicInfo(),

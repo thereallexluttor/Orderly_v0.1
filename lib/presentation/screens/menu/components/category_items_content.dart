@@ -22,7 +22,6 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
   bool isLoading = true;
   bool _showEditForm = false;
   Map<String, dynamic>? selectedItem;
-  bool _isTransitioning = false;
 
   @override
   void initState() {
@@ -44,11 +43,6 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
   }
 
   Future<void> _loadItems() async {
-    setState(() {
-      _isTransitioning = true;
-      isLoading = true;
-    });
-
     try {
       final response = await supabase
           .from('food_table')
@@ -63,20 +57,12 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
             selectedItem = items[0];
             _showEditForm = true;
           }
-          Future.delayed(const Duration(milliseconds: 300), () {
-            if (mounted) {
-              setState(() => _isTransitioning = false);
-            }
-          });
         });
       }
     } catch (e) {
       print('Error loading items: $e');
       if (mounted) {
-        setState(() {
-          isLoading = false;
-          _isTransitioning = false;
-        });
+        setState(() => isLoading = false);
       }
     }
   }
@@ -159,28 +145,24 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
                   child: _buildGrid(),
                 ),
                 if (_showEditForm && selectedItem != null)
-                  AnimatedOpacity(
-                    opacity: _isTransitioning ? 0.0 : 1.0,
-                    duration: const Duration(milliseconds: 300),
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.3,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border(
-                            left: BorderSide(color: Colors.grey[300]!),
-                          ),
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: Colors.grey[300]!),
                         ),
-                        child: MenuForm(
-                          key: ValueKey(selectedItem!['food_id']),
-                          initialData: selectedItem,
-                          onClose: () {
-                            setState(() {
-                              _showEditForm = false;
-                              selectedItem = null;
-                            });
-                            _loadItems();
-                          },
-                        ),
+                      ),
+                      child: MenuForm(
+                        key: ValueKey(selectedItem!['food_id']),
+                        initialData: selectedItem,
+                        onClose: () {
+                          setState(() {
+                            _showEditForm = false;
+                            selectedItem = null;
+                          });
+                          _loadItems();
+                        },
                       ),
                     ),
                   ),
