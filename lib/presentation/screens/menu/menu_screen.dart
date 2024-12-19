@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'components/category_items_content.dart';
 import 'components/menu_form.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -15,6 +16,8 @@ class _MenuScreenState extends State<MenuScreen> {
   List<Map<String, dynamic>> categories = [];
   final supabase = Supabase.instance.client;
   String? selectedCategory;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -22,9 +25,18 @@ class _MenuScreenState extends State<MenuScreen> {
     _loadCategories();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadCategories() async {
+    if (_isLoading) return;
+
+    setState(() => _isLoading = true);
+
     try {
-      // First get all items with their rates
       final response = await supabase
           .from('food_table')
           .select('food_category, food_photo, rate')
@@ -36,8 +48,6 @@ class _MenuScreenState extends State<MenuScreen> {
         for (var item in response as List) {
           final category = item['food_category'].toString();
           if (!categoryMap.containsKey(category)) {
-            // First item of each category will be the one with highest rate
-            // due to our ordering
             categoryMap[category] = {
               'food_category': category,
               'food_photo': item['food_photo'],
@@ -50,11 +60,18 @@ class _MenuScreenState extends State<MenuScreen> {
 
         setState(() {
           categories = categoryMap.values.toList();
+          _isLoading = false;
         });
       }
     } catch (e) {
-      print('Error loading categories: $e');
-      print('Error details: ${e.toString()}');
+      debugPrint('Error loading categories: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error al cargar categorías: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -62,131 +79,144 @@ class _MenuScreenState extends State<MenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            if (_showForm)
-              Expanded(
-                child: MenuForm(
-                  onClose: () => setState(() => _showForm = false),
-                ),
-              )
-            else
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Categorías',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+      body: RefreshIndicator(
+        onRefresh: _loadCategories,
+        child: Container(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 24),
+              if (_showForm)
+                Expanded(
+                  child: MenuForm(
+                    onClose: () => setState(() => _showForm = false),
+                  ),
+                )
+              else
+                Expanded(
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    slivers: [
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            'Categorías',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 400,
-                        child: GridView.builder(
-                          gridDelegate:
-                              SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 250,
-                            childAspectRatio: 1.2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                          itemCount: categories.length,
-                          itemBuilder: (context, index) {
-                            final item = categories[index];
-                            final category = item['food_category'];
-                            final photoUrl = item['food_photo'];
-                            final itemCount = item['item_count'];
-
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  selectedCategory = category;
-                                });
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.grey[300]!),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius:
-                                            const BorderRadius.vertical(
-                                                top: Radius.circular(12)),
-                                        child: photoUrl != null
-                                            ? Image.network(
-                                                photoUrl,
-                                                width: double.infinity,
-                                                fit: BoxFit.cover,
-                                              )
-                                            : Container(
-                                                color: Colors.grey[200],
-                                                child: const Icon(Icons.image,
-                                                    size: 40),
-                                              ),
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(12.0),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            category ?? 'Sin categoría',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.restaurant_menu,
-                                                  size: 16, color: Colors.grey),
-                                              const SizedBox(width: 4),
-                                              Text('${itemCount} items'),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                      SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) =>
+                              _buildCategoryCard(categories[index]),
+                          childCount: categories.length,
+                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 250,
+                          childAspectRatio: 1.2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                        ),
+                      ),
+                      if (selectedCategory != null)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 24),
+                            child: SizedBox(
+                              height: 900,
+                              child: CategoryItemsContent(
+                                category: selectedCategory!,
+                                onClose: () =>
+                                    setState(() => selectedCategory = null),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (selectedCategory != null) ...[
-                        const SizedBox(height: 24),
-                        Container(
-                          height: 900,
-                          color: Colors.white,
-                          child: CategoryItemsContent(
-                            category: selectedCategory!,
-                            onClose: () =>
-                                setState(() => selectedCategory = null),
+                            ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(Map<String, dynamic> item) {
+    final category = item['food_category'];
+    final photoUrl = item['food_photo'];
+    final itemCount = item['item_count'];
+
+    return GestureDetector(
+      onTap: () => setState(() => selectedCategory = category),
+      child: Card(
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: Colors.grey[200]!),
+        ),
+        color: Colors.white,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
+                child: photoUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: photoUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          color: const Color.fromARGB(255, 255, 255, 255),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: const Color.fromARGB(255, 255, 255, 255),
+                          child: const Icon(Icons.error),
+                        ),
+                      )
+                    : Container(
+                        color: const Color.fromARGB(255, 255, 255, 255),
+                        child: const Icon(Icons.image, size: 40),
+                      ),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    category ?? 'Sin categoría',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.restaurant_menu,
+                          size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text('$itemCount items'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
