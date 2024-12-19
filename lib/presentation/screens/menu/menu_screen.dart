@@ -24,17 +24,23 @@ class _MenuScreenState extends State<MenuScreen> {
 
   Future<void> _loadCategories() async {
     try {
-      final response = await supabase
-          .from('food_table')
-          .select('food_category, food_photo, rate::float')
-          .order('rate', ascending: false);
+      final response =
+          await supabase.from('food_table').select('food_category, food_photo');
 
       if (mounted) {
+        // Group items by category and count them
         final categoryMap = <String, Map<String, dynamic>>{};
+
         for (var item in response as List) {
           final category = item['food_category'].toString();
           if (!categoryMap.containsKey(category)) {
-            categoryMap[category] = item;
+            categoryMap[category] = {
+              'food_category': category,
+              'food_photo': item['food_photo'],
+              'item_count': 1,
+            };
+          } else {
+            categoryMap[category]!['item_count']++;
           }
         }
 
@@ -81,9 +87,7 @@ class _MenuScreenState extends State<MenuScreen> {
                             final item = categories[index];
                             final category = item['food_category'];
                             final photoUrl = item['food_photo'];
-                            final rating =
-                                (item['rate'] as num?)?.toStringAsFixed(1) ??
-                                    '0.0';
+                            final itemCount = item['item_count'];
 
                             return GestureDetector(
                               onTap: () {
@@ -138,11 +142,12 @@ class _MenuScreenState extends State<MenuScreen> {
                                             const SizedBox(height: 4),
                                             Row(
                                               children: [
-                                                const Icon(Icons.star,
+                                                const Icon(
+                                                    Icons.restaurant_menu,
                                                     size: 16,
-                                                    color: Colors.amber),
+                                                    color: Colors.grey),
                                                 const SizedBox(width: 4),
-                                                Text(rating),
+                                                Text('${itemCount} items'),
                                               ],
                                             ),
                                           ],
@@ -184,7 +189,7 @@ class _MenuScreenState extends State<MenuScreen> {
       shadowColor: Colors.black.withOpacity(0.1),
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: Colors.grey[300]!),
       ),
       child: Padding(
@@ -216,7 +221,7 @@ class _MenuScreenState extends State<MenuScreen> {
           vertical: 12,
         ),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           side: BorderSide(color: Colors.grey[300]!),
         ),
         elevation: 1,
