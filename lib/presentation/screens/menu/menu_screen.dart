@@ -82,10 +82,24 @@ class _MenuScreenState extends State<MenuScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 16),
-                      SizedBox(
-                        height: 200,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
+                      const Text(
+                        'Categorías',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 400,
+                        child: GridView.builder(
+                          gridDelegate:
+                              SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 250,
+                            childAspectRatio: 1.2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                          ),
                           itemCount: categories.length,
                           itemBuilder: (context, index) {
                             final item = categories[index];
@@ -99,66 +113,58 @@ class _MenuScreenState extends State<MenuScreen> {
                                   selectedCategory = category;
                                 });
                               },
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 16.0),
-                                child: Container(
-                                  width: 200,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    border:
-                                        Border.all(color: Colors.grey[300]!),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      ClipRRect(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[300]!),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: ClipRRect(
                                         borderRadius:
                                             const BorderRadius.vertical(
                                                 top: Radius.circular(12)),
                                         child: photoUrl != null
                                             ? Image.network(
                                                 photoUrl,
-                                                height: 120,
                                                 width: double.infinity,
                                                 fit: BoxFit.cover,
                                               )
                                             : Container(
-                                                height: 120,
                                                 color: Colors.grey[200],
                                                 child: const Icon(Icons.image,
                                                     size: 40),
                                               ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(12.0),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              category ?? 'Sin categoría',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            category ?? 'Sin categoría',
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              children: [
-                                                const Icon(
-                                                    Icons.restaurant_menu,
-                                                    size: 16,
-                                                    color: Colors.grey),
-                                                const SizedBox(width: 4),
-                                                Text('${itemCount} items'),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.restaurant_menu,
+                                                  size: 16, color: Colors.grey),
+                                              const SizedBox(width: 4),
+                                              Text('${itemCount} items'),
+                                            ],
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
