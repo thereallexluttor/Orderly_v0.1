@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'components/category_items_content.dart';
 import 'components/menu_form.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,7 @@ class _MenuScreenState extends State<MenuScreen> {
   bool _showForm = false;
   List<Map<String, dynamic>> categories = [];
   final supabase = Supabase.instance.client;
+  String? selectedCategory;
 
   @override
   void initState() {
@@ -50,91 +52,114 @@ class _MenuScreenState extends State<MenuScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            if (_showForm)
-              Expanded(
-                child: MenuForm(
-                  onClose: () => setState(() => _showForm = false),
+      body: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(),
+              const SizedBox(height: 24),
+              if (_showForm)
+                Expanded(
+                  child: MenuForm(
+                    onClose: () => setState(() => _showForm = false),
+                  ),
                 ),
-              ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200, // Ajusta la altura según necesites
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final item = categories[index];
-                  final category = item['food_category'];
-                  final photoUrl = item['food_photo'];
-                  final rating =
-                      (item['rate'] as num?)?.toStringAsFixed(1) ?? '0.0';
+              if (!_showForm) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 200,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final item = categories[index];
+                      final category = item['food_category'];
+                      final photoUrl = item['food_photo'];
+                      final rating =
+                          (item['rate'] as num?)?.toStringAsFixed(1) ?? '0.0';
 
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 16.0),
-                    child: Container(
-                      width: 200,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(12)),
-                            child: photoUrl != null
-                                ? Image.network(
-                                    photoUrl,
-                                    height: 120,
-                                    width: double.infinity,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    height: 120,
-                                    color: Colors.grey[200],
-                                    child: const Icon(Icons.image, size: 40),
-                                  ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            selectedCategory = category;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 16.0),
+                          child: Container(
+                            width: 200,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey[300]!),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  category ?? 'Sin categoría',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(12)),
+                                  child: photoUrl != null
+                                      ? Image.network(
+                                          photoUrl,
+                                          height: 120,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : Container(
+                                          height: 120,
+                                          color: Colors.grey[200],
+                                          child:
+                                              const Icon(Icons.image, size: 40),
+                                        ),
                                 ),
-                                const SizedBox(height: 4),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.star,
-                                        size: 16, color: Colors.amber),
-                                    const SizedBox(width: 4),
-                                    Text(rating),
-                                  ],
+                                Padding(
+                                  padding: const EdgeInsets.all(12.0),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        category ?? 'Sin categoría',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.star,
+                                              size: 16, color: Colors.amber),
+                                          const SizedBox(width: 4),
+                                          Text(rating),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                if (selectedCategory != null) ...[
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 900,
+                    child: CategoryItemsContent(
+                      category: selectedCategory!,
+                      onClose: () => setState(() => selectedCategory = null),
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
+                  ),
+                ],
+              ],
+            ],
+          ),
         ),
       ),
     );

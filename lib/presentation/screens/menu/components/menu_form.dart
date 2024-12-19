@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 
 class MenuForm extends StatefulWidget {
   final VoidCallback onClose;
+  final Map<String, dynamic>? initialData;
 
   const MenuForm({
     super.key,
     required this.onClose,
+    this.initialData,
   });
 
   @override
@@ -19,6 +21,31 @@ class MenuForm extends StatefulWidget {
 class _MenuFormState extends State<MenuForm> {
   final _controller = MenuFormController();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialData != null) {
+      _controller.foodIdController.text =
+          widget.initialData!['food_id'].toString();
+      _controller.nameController.text = widget.initialData!['food_name'] ?? '';
+      _controller.descController.text = widget.initialData!['food_desc'] ?? '';
+      _controller.businessIdController.text =
+          widget.initialData!['business_id'] ?? '';
+      _controller.rateController.text =
+          widget.initialData!['rate']?.toString() ?? '';
+      _controller.photoController.text =
+          widget.initialData!['food_photo'] ?? '';
+      _controller.priceController.text =
+          widget.initialData!['food_price']?.toString() ?? '';
+      _controller.discountController.text =
+          widget.initialData!['food_discount']?.toString() ?? '';
+      _controller.categoryController.text =
+          widget.initialData!['food_category'] ?? '';
+      _controller.stockController.text =
+          widget.initialData!['food_stock']?.toString() ?? '';
+    }
+  }
 
   @override
   void dispose() {
@@ -34,11 +61,23 @@ class _MenuFormState extends State<MenuForm> {
         final imageUrl = await _controller.uploadImage();
         final foodData = _controller.getFormData(imageUrl);
 
-        await _controller.supabase.from('food_table').insert(foodData).select();
+        if (widget.initialData != null) {
+          // Update existing item
+          await _controller.supabase
+              .from('food_table')
+              .update(foodData)
+              .eq('food_id', widget.initialData!['food_id']);
+          _showSuccessMessage('Food item updated successfully!');
+        } else {
+          // Create new item
+          await _controller.supabase
+              .from('food_table')
+              .insert(foodData)
+              .select();
+          _showSuccessMessage('Food item added successfully!');
+        }
 
         _controller.clearForm();
-        _showSuccessMessage();
-
         widget.onClose();
       } catch (e) {
         _showErrorMessage(e.toString());
@@ -50,10 +89,10 @@ class _MenuFormState extends State<MenuForm> {
     }
   }
 
-  void _showSuccessMessage() {
+  void _showSuccessMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Food item added successfully!'),
+      SnackBar(
+        content: Text(message),
         backgroundColor: Colors.green,
       ),
     );
