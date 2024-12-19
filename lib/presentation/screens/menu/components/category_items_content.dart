@@ -22,6 +22,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
   bool isLoading = true;
   bool _showEditForm = false;
   Map<String, dynamic>? selectedItem;
+  bool _isGridVisible = false;
 
   @override
   void initState() {
@@ -33,16 +34,21 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
   void didUpdateWidget(CategoryItemsContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.category != widget.category) {
-      _loadItems();
-      // Reset form state when category changes
       setState(() {
+        _isGridVisible = false;
         _showEditForm = false;
         selectedItem = null;
       });
+      _loadItems();
     }
   }
 
   Future<void> _loadItems() async {
+    setState(() {
+      _isGridVisible = false;
+      isLoading = true;
+    });
+
     try {
       final response = await supabase
           .from('food_table')
@@ -50,19 +56,29 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
           .eq('food_category', widget.category);
 
       if (mounted) {
-        setState(() {
-          items = (response as List).cast<Map<String, dynamic>>();
-          isLoading = false;
-          if (items.isNotEmpty && selectedItem == null) {
-            selectedItem = items[0];
-            _showEditForm = true;
+        items = (response as List).cast<Map<String, dynamic>>();
+
+        if (items.isNotEmpty && selectedItem == null) {
+          selectedItem = items[0];
+          _showEditForm = true;
+        }
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            setState(() {
+              isLoading = false;
+              _isGridVisible = true;
+            });
           }
         });
       }
     } catch (e) {
       print('Error loading items: $e');
       if (mounted) {
-        setState(() => isLoading = false);
+        setState(() {
+          isLoading = false;
+          _isGridVisible = true;
+        });
       }
     }
   }
@@ -177,19 +193,23 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
   Widget _buildGrid() {
     return isLoading
         ? const Center(child: CircularProgressIndicator())
-        : GridView.builder(
-            padding: const EdgeInsets.all(8),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 6,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
+        : AnimatedOpacity(
+            duration: const Duration(milliseconds: 300),
+            opacity: _isGridVisible ? 1.0 : 0.0,
+            child: GridView.builder(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _buildItemCard(item);
+              },
             ),
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return _buildItemCard(item);
-            },
           );
   }
 
