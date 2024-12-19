@@ -117,32 +117,38 @@ class _MenuFormState extends State<MenuForm> {
         borderRadius: BorderRadius.circular(8),
         side: BorderSide(color: Colors.grey[300]!),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32.0),
-        child: Form(
-          key: _controller.formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildBasicInfo(),
-              const SizedBox(height: 24),
-              _buildDescription(),
-              const SizedBox(height: 24),
-              _buildBusinessInfo(),
-              const SizedBox(height: 24),
-              ImageUploadField(
-                imageFile: _controller.imageFile,
-                photoController: _controller.photoController,
-                onImagePicked: (file) =>
-                    setState(() => _controller.imageFile = file),
-              ),
-              const SizedBox(height: 24),
-              _buildPricing(),
-              const SizedBox(height: 24),
-              _buildCategoryAndStock(),
-              const SizedBox(height: 32),
-              _buildSubmitButton(),
-            ],
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(32.0),
+          child: Form(
+            key: _controller.formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildBasicInfo(),
+                const SizedBox(height: 24),
+                _buildDescription(),
+                const SizedBox(height: 24),
+                _buildBusinessInfo(),
+                const SizedBox(height: 24),
+                ImageUploadField(
+                  imageFile: _controller.imageFile,
+                  photoController: _controller.photoController,
+                  onImagePicked: (file) =>
+                      setState(() => _controller.imageFile = file),
+                ),
+                const SizedBox(height: 24),
+                _buildPricing(),
+                const SizedBox(height: 24),
+                _buildCategoryAndStock(),
+                const SizedBox(height: 32),
+                _buildSubmitButton(),
+              ],
+            ),
           ),
         ),
       ),
