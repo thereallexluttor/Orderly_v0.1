@@ -105,7 +105,7 @@ class _MenuScreenState extends State<MenuScreen> {
                           child: Text(
                             'Categorías',
                             style: TextStyle(
-                              fontSize: 24,
+                              fontSize: 15.3,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -201,7 +201,7 @@ class _MenuScreenState extends State<MenuScreen> {
                   Text(
                     category ?? 'Sin categoría',
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 12.2,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -237,10 +237,10 @@ class _MenuScreenState extends State<MenuScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Add New Menu Item',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 13.8,
                 fontWeight: FontWeight.normal,
               ),
             ),

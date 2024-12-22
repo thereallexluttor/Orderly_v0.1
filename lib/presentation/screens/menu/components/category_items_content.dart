@@ -113,7 +113,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
             rate,
             is_available
           ''').eq('food_id', foodId).single();
-      return response as Map<String, dynamic>;
+      return response;
     } catch (e) {
       print('Error fetching updated item data: $e');
       return null;
@@ -140,10 +140,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
               children: [
                 Text(
                   widget.category,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),

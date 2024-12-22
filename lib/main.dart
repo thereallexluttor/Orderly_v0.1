@@ -3,6 +3,7 @@ import 'package:orderly/presentation/screens/login.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'presentation/screens/home/homepage.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      theme: AppTheme.lightTheme,
       debugShowCheckedModeBanner:
           false, // Desactiva el banner de debug en los dispositivos móviles
       home:

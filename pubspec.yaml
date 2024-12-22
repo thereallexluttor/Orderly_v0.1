@@ -38,6 +38,12 @@ flutter:
     - family: Roboto
       fonts:
         - asset: lib\assets\fonts\Roboto-Medium.ttf
+    - family: Poppins
+      fonts:
+        - asset: lib\assets\fonts\Poppins-Medium.ttf
+    - family: Poppins-Italic
+      fonts:
+        - asset: lib\assets\fonts\Poppins-MediumItalic.ttf
 
 
 
