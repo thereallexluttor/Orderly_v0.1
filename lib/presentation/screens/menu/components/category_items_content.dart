@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'menu_form.dart';
+import 'package:provider/provider.dart';
+import '../controllers/menu_screen_controller.dart';
 
 class CategoryItemsContent extends StatefulWidget {
   final String category;
@@ -35,18 +37,19 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.category != widget.category) {
       setState(() {
-        _isGridVisible = false;
-        _showEditForm = false;
         selectedItem = null;
+        _showEditForm = false;
       });
       _loadItems();
     }
   }
 
   Future<void> _loadItems() async {
+    if (!mounted) return;
+
     setState(() {
-      _isGridVisible = false;
       isLoading = true;
+      _isGridVisible = false;
     });
 
     try {
@@ -55,23 +58,18 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
           .select()
           .eq('food_category', widget.category);
 
-      if (mounted) {
+      if (!mounted) return;
+
+      setState(() {
         items = (response as List).cast<Map<String, dynamic>>();
+        isLoading = false;
+        _isGridVisible = true;
 
         if (items.isNotEmpty && selectedItem == null) {
           selectedItem = items[0];
           _showEditForm = true;
         }
-
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            setState(() {
-              isLoading = false;
-              _isGridVisible = true;
-            });
-          }
-        });
-      }
+      });
     } catch (e) {
       print('Error loading items: $e');
       if (mounted) {
@@ -83,40 +81,35 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
     }
   }
 
-  Future<void> _deleteItem(int foodId) async {
+  Future<void> handleDelete(String itemId) async {
     try {
-      await supabase.from('food_table').delete().eq('food_id', foodId);
-      _loadItems();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Item deleted successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting item: $e')),
-        );
-      }
-    }
-  }
+      await supabase.from('food_table').delete().match({'food_id': itemId});
 
-  Future<Map<String, dynamic>?> _getUpdatedItemData(int foodId) async {
-    try {
-      final response = await supabase.from('food_table').select('''
-            food_id,
-            food_name,
-            food_price,
-            food_photo,
-            food_category,
-            food_description,
-            rate,
-            is_available
-          ''').eq('food_id', foodId).single();
-      return response;
+      if (mounted) {
+        setState(() {
+          items.removeWhere((item) => item['food_id'].toString() == itemId);
+
+          if (selectedItem != null &&
+              selectedItem!['food_id'].toString() == itemId) {
+            if (items.isNotEmpty) {
+              selectedItem = items[0];
+              _showEditForm = true;
+            } else {
+              selectedItem = null;
+              _showEditForm = false;
+            }
+          }
+        });
+
+        final controller = context.read<MenuScreenController>();
+        await controller.handleItemDeleted(widget.category);
+      }
     } catch (e) {
-      print('Error fetching updated item data: $e');
-      return null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar el elemento: $e')),
+        );
+      }
     }
   }
 
@@ -138,9 +131,29 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  widget.category,
-                  style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    Text(
+                      widget.category,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${items.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
@@ -174,6 +187,9 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
                             _showEditForm = false;
                             selectedItem = null;
                           });
+                          _loadItems();
+                        },
+                        onSave: () {
                           _loadItems();
                         },
                       ),
@@ -329,12 +345,31 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteItem(item['food_id']);
+              handleDelete(item['food_id'].toString());
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
+  }
+
+  Future<Map<String, dynamic>?> _getUpdatedItemData(int foodId) async {
+    try {
+      final response = await supabase.from('food_table').select('''
+            food_id,
+            food_name,
+            food_price,
+            food_photo,
+            food_category,
+            food_description,
+            rate,
+            is_available
+          ''').eq('food_id', foodId).single();
+      return response;
+    } catch (e) {
+      print('Error fetching updated item data: $e');
+      return null;
+    }
   }
 }

@@ -8,6 +8,24 @@ class MenuScreenController extends ChangeNotifier {
   String? selectedCategory;
   List<Map<String, dynamic>> categories = [];
 
+  Future<void> handleItemDeleted(String category) async {
+    final response = await supabase
+        .from('food_table')
+        .select('food_category')
+        .eq('food_category', category);
+
+    final itemsInCategory = response as List;
+
+    if (itemsInCategory.isEmpty) {
+      selectedCategory = null;
+      await loadCategories();
+    } else {
+      await loadCategories();
+    }
+
+    notifyListeners();
+  }
+
   void toggleForm() {
     showForm = !showForm;
     notifyListeners();
@@ -46,6 +64,12 @@ class MenuScreenController extends ChangeNotifier {
       }
 
       categories = categoryMap.values.toList();
+
+      if (selectedCategory != null &&
+          !categories.any((cat) => cat['food_category'] == selectedCategory)) {
+        selectedCategory = null;
+      }
+
       isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -53,5 +77,10 @@ class MenuScreenController extends ChangeNotifier {
       notifyListeners();
       throw Exception('Error loading categories: $e');
     }
+  }
+
+  Future<void> handleItemSaved() async {
+    await loadCategories();
+    notifyListeners();
   }
 }

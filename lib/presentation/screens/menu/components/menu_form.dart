@@ -3,15 +3,19 @@ import '../controllers/menu_form_controller.dart';
 import 'custom_text_field.dart';
 import 'image_upload_field.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import '../controllers/menu_screen_controller.dart';
 
 class MenuForm extends StatefulWidget {
   final VoidCallback onClose;
   final Map<String, dynamic>? initialData;
+  final VoidCallback? onSave;
 
   const MenuForm({
     super.key,
     required this.onClose,
     this.initialData,
+    this.onSave,
   });
 
   @override
@@ -62,14 +66,12 @@ class _MenuFormState extends State<MenuForm> {
         final foodData = _controller.getFormData(imageUrl);
 
         if (widget.initialData != null) {
-          // Update existing item
           await _controller.supabase
               .from('food_table')
               .update(foodData)
               .eq('food_id', widget.initialData!['food_id']);
           _showSuccessMessage('Food item updated successfully!');
         } else {
-          // Create new item
           await _controller.supabase
               .from('food_table')
               .insert(foodData)
@@ -77,8 +79,14 @@ class _MenuFormState extends State<MenuForm> {
           _showSuccessMessage('Food item added successfully!');
         }
 
+        if (context.mounted) {
+          final controller = context.read<MenuScreenController>();
+          await controller.handleItemSaved();
+        }
+
         _controller.clearForm();
         widget.onClose();
+        widget.onSave?.call();
       } catch (e) {
         _showErrorMessage(e.toString());
       } finally {
