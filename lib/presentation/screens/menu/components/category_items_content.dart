@@ -211,7 +211,7 @@ class _CategoryItemsContentState extends State<CategoryItemsContent> {
             opacity: _isGridVisible ? 1.0 : 0.0,
             child: GridView.builder(
               padding: const EdgeInsets.all(8),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 6,
                 childAspectRatio: 0.65,
                 crossAxisSpacing: 8,
