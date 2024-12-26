@@ -75,12 +75,23 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get _filteredItems => _inventoryItems
-      .where((item) => item['ingredient_name']
-          .toString()
-          .toLowerCase()
-          .contains(_searchQuery.toLowerCase()))
-      .toList();
+  List<Map<String, dynamic>> get _filteredItems {
+    var items = _inventoryItems
+        .where((item) => item['ingredient_name']
+            .toString()
+            .toLowerCase()
+            .contains(_searchQuery.toLowerCase()))
+        .toList();
+
+    // Ordenar por uso total (de mayor a menor)
+    items.sort((a, b) {
+      final usageA = _ingredientUsage[a['ingredient_id']] ?? 0.0;
+      final usageB = _ingredientUsage[b['ingredient_id']] ?? 0.0;
+      return usageB.compareTo(usageA);
+    });
+
+    return items;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -207,8 +218,49 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 ),
                 Expanded(
                   flex: 2,
-                  child:
-                      Text('${totalUsage.toStringAsFixed(2)} ${item['unit']}'),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (totalUsage == 0) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              side: BorderSide(color: Colors.grey[200]!),
+                            ),
+                            title: Text('Sin datos de uso'),
+                            content: Text(
+                                'Este ingrediente no tiene registros de uso hasta el momento.'),
+                            actions: [
+                              TextButton(
+                                style: TextButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(7),
+                                    side: BorderSide(color: Colors.grey[200]!),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                                child: Text('Cerrar',
+                                    style: TextStyle(color: Colors.grey[800])),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    },
+                    child: Text(
+                      '${totalUsage.toStringAsFixed(2)} ${item['unit']}',
+                      style: totalUsage == 0
+                          ? TextStyle(
+                              color: Colors.grey[400],
+                              fontStyle: FontStyle.italic,
+                            )
+                          : null,
+                    ),
+                  ),
                 ),
                 Expanded(
                   flex: 1,
@@ -240,14 +292,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.edit_outlined,
-                            size: 20, color: Colors.grey[600]),
-                        onPressed: () {
-                          // TODO: Implementar edición
-                        },
-                        tooltip: 'Editar',
-                      ),
-                      IconButton(
                         icon: Icon(Icons.history,
                             size: 20, color: Colors.grey[600]),
                         onPressed: () => _showUsageHistory(item),
@@ -265,6 +309,39 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showUsageHistory(Map<String, dynamic> item) async {
+    final totalUsage = _ingredientUsage[item['ingredient_id']] ?? 0.0;
+
+    if (totalUsage == 0) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(7),
+            side: BorderSide(color: Colors.grey[200]!),
+          ),
+          title: Text('Sin datos de uso'),
+          content: Text(
+              'Este ingrediente no tiene registros de uso hasta el momento.'),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                  side: BorderSide(color: Colors.grey[200]!),
+                ),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cerrar', style: TextStyle(color: Colors.grey[800])),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     try {
       final availableStock = getAvailableStock(item);
       print('Stock disponible calculado: $availableStock'); // Debug log
@@ -515,51 +592,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             },
           ),
         ),
-        const SizedBox(width: 16),
-        _buildFilterButton(),
-        const SizedBox(width: 16),
-        _buildSortButton(),
       ],
-    );
-  }
-
-  Widget _buildFilterButton() {
-    return ElevatedButton.icon(
-      onPressed: () {
-        // TODO: Implementar filtros
-      },
-      icon: const Icon(Icons.filter_list),
-      label: const Text('Filtrar'),
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.grey[800],
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(7),
-          side: BorderSide(color: Colors.grey[200]!),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortButton() {
-    return ElevatedButton.icon(
-      onPressed: () {
-        // TODO: Implementar ordenamiento
-      },
-      icon: const Icon(Icons.sort),
-      label: const Text('Ordenar'),
-      style: ElevatedButton.styleFrom(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.grey[800],
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(7),
-          side: BorderSide(color: Colors.grey[200]!),
-        ),
-      ),
     );
   }
 }
