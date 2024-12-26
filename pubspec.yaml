@@ -18,6 +18,8 @@ dependencies:
   image: ^4.1.7
   provider: ^6.0.5
   intl: ^0.20.1
+  url_launcher: ^6.2.5
+  http: ^1.2.2
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -245,34 +247,111 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _showUsageHistory(Map<String, dynamic> item) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Historial de Uso - ${item['ingredient_name']}'),
-        content: SizedBox(
-          width: 600,
-          height: 400,
-          child: ListView.builder(
-            itemCount: (item['ingredient_usage_table'] as List).length,
-            itemBuilder: (context, index) {
-              final usage = (item['ingredient_usage_table'] as List)[index];
-              return ListTile(
-                title: Text(
-                    'Cantidad usada: ${usage['quantity_used']} ${item['unit']}'),
-                subtitle: Text(
-                    'Fecha: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(usage['usage_date']))}'),
-              );
-            },
+  void _showUsageHistory(Map<String, dynamic> item) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'http://localhost:8000/ingredient-usage/${item['ingredient_id']}'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final stats = IngredientStats.fromJson(data['stats']);
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Análisis de Uso - ${item['ingredient_name']}'),
+            content: Container(
+              width: 800,
+              height: 600,
+              child: Column(
+                children: [
+                  // Estadísticas generales
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatCard(
+                            'Uso Total',
+                            '${stats.totalUsage.toStringAsFixed(2)} ${item['unit']}',
+                            Icons.assessment,
+                          ),
+                          _buildStatCard(
+                            'Promedio Diario',
+                            '${stats.avgDailyUsage.toStringAsFixed(2)} ${item['unit']}',
+                            Icons.trending_up,
+                          ),
+                          _buildStatCard(
+                            'Máximo Diario',
+                            '${stats.maxDailyUsage.toStringAsFixed(2)} ${item['unit']}',
+                            Icons.arrow_upward,
+                          ),
+                          _buildStatCard(
+                            'Días Registrados',
+                            stats.totalDays.toString(),
+                            Icons.calendar_today,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Botón para ver gráficas en el navegador
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final url = Uri.parse(
+                          'http://localhost:8000/ingredient-usage/${item['ingredient_id']}');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url);
+                      }
+                    },
+                    icon: const Icon(Icons.bar_chart),
+                    label: const Text('Ver Gráficas en el Navegador'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar las estadísticas: $e')),
+      );
+    }
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 24, color: Colors.blue),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.blue,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -334,6 +413,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
+    );
+  }
+}
+
+class IngredientStats {
+  final double totalUsage;
+  final double avgDailyUsage;
+  final double maxDailyUsage;
+  final int totalDays;
+
+  IngredientStats({
+    required this.totalUsage,
+    required this.avgDailyUsage,
+    required this.maxDailyUsage,
+    required this.totalDays,
+  });
+
+  factory IngredientStats.fromJson(Map<String, dynamic> json) {
+    return IngredientStats(
+      totalUsage: json['total_usage'],
+      avgDailyUsage: json['avg_daily_usage'],
+      maxDailyUsage: json['max_daily_usage'],
+      totalDays: json['total_days'],
     );
   }
 }
