@@ -65,9 +65,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   double getAvailableStock(Map<String, dynamic> item) {
-    final totalStock = (item['total_stock'] as num).toDouble();
-    final usage = _ingredientUsage[item['ingredient_id']] ?? 0.0;
-    return totalStock - usage;
+    try {
+      final totalStock = (item['total_stock'] as num?)?.toDouble() ?? 0.0;
+      final usage = _ingredientUsage[item['ingredient_id']] ?? 0.0;
+      return (totalStock - usage).abs();
+    } catch (e) {
+      print('Error calculando stock disponible: $e');
+      return 0.0;
+    }
   }
 
   List<Map<String, dynamic>> get _filteredItems => _inventoryItems
@@ -249,10 +254,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _showUsageHistory(Map<String, dynamic> item) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-            'http://localhost:8000/ingredient-usage/${item['ingredient_id']}'),
-      );
+      final availableStock = getAvailableStock(item);
+      print('Stock disponible calculado: $availableStock'); // Debug log
+
+      final uri = Uri.parse(
+              'http://localhost:8000/ingredient-usage/${item['ingredient_id']}')
+          .replace(queryParameters: {
+        'current_stock': availableStock.toString(),
+      });
+
+      print('URL de la solicitud: $uri'); // Debug log
+
+      final response = await http.get(uri);
+      print('Código de respuesta: ${response.statusCode}'); // Debug log
+      if (response.statusCode != 200) {
+        print('Cuerpo de la respuesta de error: ${response.body}'); // Debug log
+      }
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -267,6 +284,41 @@ class _InventoryScreenState extends State<InventoryScreen> {
               height: 600,
               child: Column(
                 children: [
+                  // Alerta de reabastecimiento
+                  if (data['stats']['restock_status'] != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _getAlertColor(data['stats']['restock_status']
+                                ['urgency'] ??
+                            'medium'),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Estado del Stock',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(data['stats']['restock_status']
+                                  ['recommendation'] ??
+                              'No hay recomendación disponible'),
+                          SizedBox(height: 8),
+                          if (data['stats']['restock_status']
+                                  ['days_remaining'] !=
+                              null)
+                            Text(
+                              'Días estimados de stock: ${data['stats']['restock_status']['days_remaining'].toStringAsFixed(1)}',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                        ],
+                      ),
+                    ),
                   // Estadísticas generales
                   Card(
                     child: Padding(
@@ -302,8 +354,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   // Botón para ver gráficas en el navegador
                   ElevatedButton.icon(
                     onPressed: () async {
+                      final availableStock = getAvailableStock(item);
                       final url = Uri.parse(
-                          'http://localhost:8000/ingredient-usage/${item['ingredient_id']}');
+                              'http://localhost:8000/ingredient-usage/${item['ingredient_id']}')
+                          .replace(queryParameters: {
+                        'current_stock': availableStock.toString(),
+                      });
+
                       if (await canLaunchUrl(url)) {
                         await launchUrl(url);
                       }
@@ -322,11 +379,36 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
         );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Error al cargar las estadísticas. Código: ${response.statusCode}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
+      print('Error detallado: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar las estadísticas: $e')),
+        SnackBar(
+          content: Text('Error al cargar las estadísticas: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
+    }
+  }
+
+  Color _getAlertColor(String urgency) {
+    switch (urgency) {
+      case 'high':
+        return Colors.red[100]!;
+      case 'medium':
+        return Colors.orange[100]!;
+      case 'low':
+        return Colors.green[100]!;
+      default:
+        return Colors.grey[100]!;
     }
   }
 
@@ -422,20 +504,27 @@ class IngredientStats {
   final double avgDailyUsage;
   final double maxDailyUsage;
   final int totalDays;
+  final double currentStock;
+  final double daysRemaining;
 
   IngredientStats({
     required this.totalUsage,
     required this.avgDailyUsage,
     required this.maxDailyUsage,
     required this.totalDays,
+    this.currentStock = 0.0,
+    this.daysRemaining = 0.0,
   });
 
   factory IngredientStats.fromJson(Map<String, dynamic> json) {
     return IngredientStats(
-      totalUsage: json['total_usage'],
-      avgDailyUsage: json['avg_daily_usage'],
-      maxDailyUsage: json['max_daily_usage'],
-      totalDays: json['total_days'],
+      totalUsage: (json['total_usage'] ?? 0).toDouble(),
+      avgDailyUsage: (json['avg_daily_usage'] ?? 0).toDouble(),
+      maxDailyUsage: (json['max_daily_usage'] ?? 0).toDouble(),
+      totalDays: json['total_days'] ?? 0,
+      currentStock: (json['restock_status']?['current_stock'] ?? 0).toDouble(),
+      daysRemaining:
+          (json['restock_status']?['days_remaining'] ?? 0).toDouble(),
     );
   }
 }
