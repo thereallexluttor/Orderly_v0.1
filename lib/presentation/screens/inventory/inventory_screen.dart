@@ -85,19 +85,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Inventario',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 24),
             _buildTopBar(),
             const SizedBox(height: 24),
             _buildInventoryHeader(),
@@ -110,10 +103,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(7),
+          side: BorderSide(color: Colors.grey[200]!),
+        ),
         onPressed: () {
           // TODO: Implementar añadir nuevo ingrediente
         },
-        child: const Icon(Icons.add),
+        child: Icon(Icons.add, color: Colors.grey[800]),
       ),
     );
   }
@@ -122,8 +121,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(7),
       ),
       child: const Row(
         children: [
@@ -164,6 +164,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 4),
+          elevation: 0,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(7),
+            side: BorderSide(color: Colors.grey[200]!),
+          ),
           child: ListTile(
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -210,8 +216,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isLowStock ? Colors.red[100] : Colors.green[100],
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                      border: Border.all(
+                        color:
+                            isLowStock ? Colors.red[200]! : Colors.green[200]!,
+                      ),
+                      borderRadius: BorderRadius.circular(7),
                     ),
                     child: Text(
                       isLowStock ? 'Bajo' : 'OK',
@@ -230,14 +240,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        icon: Icon(Icons.edit_outlined,
+                            size: 20, color: Colors.grey[600]),
                         onPressed: () {
                           // TODO: Implementar edición
                         },
                         tooltip: 'Editar',
                       ),
                       IconButton(
-                        icon: const Icon(Icons.history, size: 20),
+                        icon: Icon(Icons.history,
+                            size: 20, color: Colors.grey[600]),
                         onPressed: () => _showUsageHistory(item),
                         tooltip: 'Historial',
                       ),
@@ -278,10 +290,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(7),
+              side: BorderSide(color: Colors.grey[200]!),
+            ),
             title: Text('Análisis de Uso - ${item['ingredient_name']}'),
             content: Container(
               width: 800,
               height: 600,
+              color: Colors.white,
               child: Column(
                 children: [
                   // Alerta de reabastecimiento
@@ -290,10 +308,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: _getAlertColor(data['stats']['restock_status']
-                                ['urgency'] ??
-                            'medium'),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey[200]!),
+                        borderRadius: BorderRadius.circular(7),
                       ),
                       child: Column(
                         children: [
@@ -321,6 +338,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   // Estadísticas generales
                   Card(
+                    elevation: 0,
+                    color: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(7),
+                      side: BorderSide(color: Colors.grey[200]!),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Row(
@@ -353,6 +376,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   const SizedBox(height: 16),
                   // Botón para ver gráficas en el navegador
                   ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.grey[800],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
+                        side: BorderSide(color: Colors.grey[200]!),
+                      ),
+                    ),
                     onPressed: () async {
                       final availableStock = getAvailableStock(item);
                       final url = Uri.parse(
@@ -373,8 +405,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             actions: [
               TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(7),
+                    side: BorderSide(color: Colors.grey[200]!),
+                  ),
+                ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Cerrar'),
+                child:
+                    Text('Cerrar', style: TextStyle(color: Colors.grey[800])),
               ),
             ],
           ),
@@ -393,7 +434,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error al cargar las estadísticas: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(7),
+            side: BorderSide(color: Colors.red[200]!),
+          ),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(8),
+          elevation: 0,
         ),
       );
     }
@@ -416,7 +464,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 24, color: Colors.blue),
+        Icon(icon, size: 24, color: Colors.grey[800]),
         const SizedBox(height: 8),
         Text(
           title,
@@ -428,9 +476,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
-            color: Colors.blue,
+            color: Colors.grey[800],
           ),
         ),
       ],
@@ -444,12 +492,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Buscar ingrediente...',
-              prefixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(7),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(7),
+                borderSide: BorderSide(color: Colors.grey[200]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(7),
+                borderSide: BorderSide(color: Colors.grey[400]!),
               ),
               filled: true,
-              fillColor: Colors.grey[100],
+              fillColor: Colors.white,
             ),
             onChanged: (value) {
               setState(() {
@@ -474,9 +531,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
       icon: const Icon(Icons.filter_list),
       label: const Text('Filtrar'),
       style: ElevatedButton.styleFrom(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.grey[800],
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(7),
+          side: BorderSide(color: Colors.grey[200]!),
         ),
       ),
     );
@@ -490,9 +551,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
       icon: const Icon(Icons.sort),
       label: const Text('Ordenar'),
       style: ElevatedButton.styleFrom(
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.grey[800],
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(7),
+          side: BorderSide(color: Colors.grey[200]!),
         ),
       ),
     );
