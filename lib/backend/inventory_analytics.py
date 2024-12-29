@@ -12,6 +12,7 @@ from prophet import Prophet
 import json
 import logging
 from inventory_multi_agent import InventoryAnalysisSystem
+from functools import lru_cache
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +36,16 @@ supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
 inventory_system = InventoryAnalysisSystem()
+
+# Add caching to prevent duplicate analysis
+@lru_cache(maxsize=128)
+def get_cached_agent_analysis(ingredient_id: int, current_stock: float, cache_key: str) -> dict:
+    """Cache the agent analysis results for 5 minutes"""
+    return inventory_system.analyze_inventory({
+        "ingredient_id": ingredient_id,
+        "current_stock": current_stock,
+        # Include other data needed for analysis
+    })
 
 @app.get("/ingredient-usage/{ingredient_id}")
 async def get_ingredient_usage(ingredient_id: int, current_stock: float, request: Request):
@@ -191,27 +202,14 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             hovermode='x unified'
         )
 
-        # After calculating stats, prepare data for multi-agent analysis
-        inventory_data = {
-            "ingredient_id": ingredient_id,
-            "current_stock": current_stock,
-            "usage_history": [
-                {
-                    "date": row['usage_date'].strftime('%Y-%m-%d'),
-                    "quantity": float(row['quantity_used'])
-                }
-                for _, row in df.iterrows()
-            ],
-            "stats": stats,
-            "predicted_usage": {
-                "next_3_days": float(forecast['yhat'].tail(3).sum()),
-                "daily_average": float(forecast['yhat'].tail(3).mean())
-            }
-        }
+        # Generate a cache key that expires every 5 minutes
+        cache_time = datetime.now().replace(second=0, microsecond=0)
+        cache_time = cache_time - timedelta(minutes=cache_time.minute % 5)
+        cache_key = f"{cache_time.isoformat()}"
 
-        # Get multi-agent analysis
-        agent_analysis = inventory_system.analyze_inventory(inventory_data)
-
+        # Use cached agent analysis instead of direct call
+        agent_analysis = get_cached_agent_analysis(ingredient_id, current_stock, cache_key)
+        
         # Add agent analysis to the response
         stats['agent_analysis'] = agent_analysis
 
@@ -418,9 +416,24 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                     </div>
 
                     <div class="agent-analysis-container">
-                        <h2>Recomendación Final</h2>
-                        <div class="agent-card">
-                            <p>{agent_analysis['recommendation']}</p>
+                        <h2>Análisis Multi-Agente AI</h2>
+                        <div class="agent-cards">
+                            <div class="agent-card">
+                                <h3>Análisis de Datos</h3>
+                                <p>{agent_analysis['analyses']['data_analysis']}</p>
+                            </div>
+                            <div class="agent-card">
+                                <h3>Análisis Predictivo</h3>
+                                <p>{agent_analysis['analyses']['prediction_analysis']}</p>
+                            </div>
+                            <div class="agent-card">
+                                <h3>Análisis de Riesgos</h3>
+                                <p>{agent_analysis['analyses']['risk_analysis']}</p>
+                            </div>
+                            <div class="agent-card">
+                                <h3>Análisis Cognitivo</h3>
+                                <p>{agent_analysis['analyses']['cognitive_analysis']}</p>
+                            </div>
                         </div>
                     </div>
 
@@ -453,9 +466,6 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             'agent_analysis': agent_analysis
         }
 
-    except HTTPException as he:
-        logger.error(f"HTTP Exception: {str(he)}")
-        raise he
     except Exception as e:
         logger.error(f"Error inesperado: {str(e)}", exc_info=True)
         raise HTTPException(
