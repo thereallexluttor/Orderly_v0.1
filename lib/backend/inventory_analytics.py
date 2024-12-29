@@ -64,6 +64,10 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
     try:
         logger.info(f"Obteniendo datos para ingredient_id: {ingredient_id}, stock actual: {current_stock}")
         
+        # Verificar si la solicitud viene del navegador
+        accept_header = request.headers.get("accept", "")
+        is_browser_request = "text/html" in accept_header
+
         # Obtener datos de uso del ingrediente
         usage_response = supabase.table("ingredient_usage_table") \
             .select("quantity_used, usage_date") \
@@ -214,18 +218,19 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             hovermode='x unified'
         )
 
-        # Generate a cache key that expires every 5 minutes
-        cache_time = datetime.now().replace(second=0, microsecond=0)
-        cache_time = cache_time - timedelta(minutes=cache_time.minute % 5)
-        cache_key = f"{cache_time.isoformat()}"
+        # Solo ejecutar análisis de agentes si es una solicitud del navegador
+        agent_analysis = None
+        if is_browser_request:
+            # Generate a cache key that expires every 5 minutes
+            cache_time = datetime.now().replace(second=0, microsecond=0)
+            cache_time = cache_time - timedelta(minutes=cache_time.minute % 5)
+            cache_key = f"{cache_time.isoformat()}"
 
-        # Use cached agent analysis instead of direct call
-        agent_analysis = get_cached_agent_analysis(ingredient_id, current_stock, cache_key)
-        
-        # Add agent analysis to the response
-        stats['agent_analysis'] = agent_analysis
+            # Use cached agent analysis instead of direct call
+            agent_analysis = get_cached_agent_analysis(ingredient_id, current_stock, cache_key)
+            stats['agent_analysis'] = agent_analysis
 
-        # Prepare the complete analysis data
+        # Prepare the analysis data
         analysis_data = {
             'timestamp': datetime.now().isoformat(),
             'ingredient_id': ingredient_id,
@@ -233,9 +238,12 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             'daily_usage_chart': fig1.to_json(),
             'weekly_usage_chart': fig2.to_json(),
             'prediction_chart': fig3.to_json(),
-            'stats': stats,
-            'agent_analysis': agent_analysis
+            'stats': stats
         }
+
+        # Solo incluir análisis de agentes si está disponible
+        if agent_analysis:
+            analysis_data['agent_analysis'] = agent_analysis
 
         # Save to JSON file
         daily_dir = ensure_daily_directory()
@@ -247,10 +255,8 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
 
         logger.info(f"Analysis saved to {daily_dir / filename}")
 
-        # Verificar si la solicitud viene de un navegador
-        accept_header = request.headers.get("accept", "")
-        if "text/html" in accept_header:
-            # Devolver página HTML con las gráficas
+        # Si es una solicitud del navegador, devolver HTML
+        if is_browser_request:
             return HTMLResponse(content=f"""
             <!DOCTYPE html>
             <html>
@@ -510,8 +516,13 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             </html>
             """)
         
-        # Si no es una solicitud del navegador, devolver JSON como antes
-        return analysis_data
+        # Si no es una solicitud del navegador, devolver JSON sin el análisis de agentes
+        return {
+            'daily_usage_chart': fig1.to_json(),
+            'weekly_usage_chart': fig2.to_json(),
+            'prediction_chart': fig3.to_json(),
+            'stats': {k: v for k, v in stats.items() if k != 'agent_analysis'}
+        }
 
     except Exception as e:
         logger.error(f"Error inesperado: {str(e)}", exc_info=True)
