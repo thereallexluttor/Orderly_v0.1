@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from prophet import Prophet
 import json
 import logging
+from inventory_multi_agent import InventoryAnalysisSystem
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,8 @@ load_dotenv()
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
+
+inventory_system = InventoryAnalysisSystem()
 
 @app.get("/ingredient-usage/{ingredient_id}")
 async def get_ingredient_usage(ingredient_id: int, current_stock: float, request: Request):
@@ -188,6 +191,30 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             hovermode='x unified'
         )
 
+        # After calculating stats, prepare data for multi-agent analysis
+        inventory_data = {
+            "ingredient_id": ingredient_id,
+            "current_stock": current_stock,
+            "usage_history": [
+                {
+                    "date": row['usage_date'].strftime('%Y-%m-%d'),
+                    "quantity": float(row['quantity_used'])
+                }
+                for _, row in df.iterrows()
+            ],
+            "stats": stats,
+            "predicted_usage": {
+                "next_3_days": float(forecast['yhat'].tail(3).sum()),
+                "daily_average": float(forecast['yhat'].tail(3).mean())
+            }
+        }
+
+        # Get multi-agent analysis
+        agent_analysis = inventory_system.analyze_inventory(inventory_data)
+
+        # Add agent analysis to the response
+        stats['agent_analysis'] = agent_analysis
+
         # Verificar si la solicitud viene de un navegador
         accept_header = request.headers.get("accept", "")
         if "text/html" in accept_header:
@@ -325,6 +352,38 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                         font-size: 1.1em;
                         margin-top: -20px;
                     }}
+                    .agent-analysis-container {{
+                        margin: 40px 0;
+                        padding: 20px;
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+                        border: 1px solid #e5e9f2;
+                    }}
+                    .agent-cards {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                        gap: 20px;
+                        margin-top: 20px;
+                    }}
+                    .agent-card {{
+                        background-color: #f8fafc;
+                        padding: 20px;
+                        border-radius: 8px;
+                        border: 1px solid #e5e9f2;
+                    }}
+                    .agent-card h3 {{
+                        color: #2d3748;
+                        margin-top: 0;
+                        margin-bottom: 10px;
+                        font-size: 1.1em;
+                    }}
+                    .agent-card p {{
+                        color: #4a5568;
+                        margin: 0;
+                        font-size: 0.95em;
+                        line-height: 1.5;
+                    }}
                 </style>
             </head>
             <body>
@@ -358,6 +417,13 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                         </div>
                     </div>
 
+                    <div class="agent-analysis-container">
+                        <h2>Recomendación Final</h2>
+                        <div class="agent-card">
+                            <p>{agent_analysis['recommendation']}</p>
+                        </div>
+                    </div>
+
                     <div class="charts-container">
                         <div class="chart" id="daily-chart"></div>
                         <div class="chart" id="prediction-chart"></div>
@@ -383,7 +449,8 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             'daily_usage_chart': fig1.to_json(),
             'weekly_usage_chart': fig2.to_json(),
             'prediction_chart': fig3.to_json(),
-            'stats': stats
+            'stats': stats,
+            'agent_analysis': agent_analysis
         }
 
     except HTTPException as he:
