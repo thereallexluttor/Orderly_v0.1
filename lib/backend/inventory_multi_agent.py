@@ -111,10 +111,8 @@ class InventoryAnalysisSystem:
                 llm=self.llm,
                 description="Razona y contrasta los análisis de los otros agentes.",
                 instructions=[
-                    "Analizar la coherencia entre los diferentes análisis.",
-                    "Identificar posibles contradicciones o puntos de acuerdo.",
                     "Proporcionar una perspectiva integrada basada en el razonamiento crítico.",
-                    "Sugerir áreas que requieren más investigación o atención."
+                    
                 ],
             )
         }
@@ -161,10 +159,10 @@ class InventoryAnalysisSystem:
                 Análisis de Riesgos: {analyses['risk']}
 
                 Proporciona:
-                1. Evaluación de coherencia entre análisis
-                2. Identificación de contradicciones o confirmaciones
-                3. Perspectiva integrada y razonada
-                4. Áreas que requieren más atención""",
+                
+                1. Perspectiva integrada y razonada
+
+                """,
                 stream=False
             ))
 

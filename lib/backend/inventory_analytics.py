@@ -13,6 +13,7 @@ import json
 import logging
 from inventory_multi_agent import InventoryAnalysisSystem
 from functools import lru_cache
+from pathlib import Path
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -46,6 +47,17 @@ def get_cached_agent_analysis(ingredient_id: int, current_stock: float, cache_ke
         "current_stock": current_stock,
         # Include other data needed for analysis
     })
+
+def ensure_daily_directory() -> Path:
+    """Create and return path to today's data directory"""
+    today = datetime.now().strftime('%Y-%m-%d')
+    base_dir = Path(__file__).parent / 'analytics_data'
+    daily_dir = base_dir / today
+    
+    # Create directories if they don't exist
+    daily_dir.mkdir(parents=True, exist_ok=True)
+    
+    return daily_dir
 
 @app.get("/ingredient-usage/{ingredient_id}")
 async def get_ingredient_usage(ingredient_id: int, current_stock: float, request: Request):
@@ -212,6 +224,28 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
         
         # Add agent analysis to the response
         stats['agent_analysis'] = agent_analysis
+
+        # Prepare the complete analysis data
+        analysis_data = {
+            'timestamp': datetime.now().isoformat(),
+            'ingredient_id': ingredient_id,
+            'current_stock': current_stock,
+            'daily_usage_chart': fig1.to_json(),
+            'weekly_usage_chart': fig2.to_json(),
+            'prediction_chart': fig3.to_json(),
+            'stats': stats,
+            'agent_analysis': agent_analysis
+        }
+
+        # Save to JSON file
+        daily_dir = ensure_daily_directory()
+        timestamp = datetime.now().strftime('%H-%M-%S')
+        filename = f'ingredient_{ingredient_id}_{timestamp}.json'
+        
+        with open(daily_dir / filename, 'w', encoding='utf-8') as f:
+            json.dump(analysis_data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Analysis saved to {daily_dir / filename}")
 
         # Verificar si la solicitud viene de un navegador
         accept_header = request.headers.get("accept", "")
@@ -477,16 +511,26 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             """)
         
         # Si no es una solicitud del navegador, devolver JSON como antes
-        return {
-            'daily_usage_chart': fig1.to_json(),
-            'weekly_usage_chart': fig2.to_json(),
-            'prediction_chart': fig3.to_json(),
-            'stats': stats,
-            'agent_analysis': agent_analysis
-        }
+        return analysis_data
 
     except Exception as e:
         logger.error(f"Error inesperado: {str(e)}", exc_info=True)
+        
+        # Also log errors to file
+        daily_dir = ensure_daily_directory()
+        timestamp = datetime.now().strftime('%H-%M-%S')
+        error_filename = f'error_ingredient_{ingredient_id}_{timestamp}.json'
+        
+        error_data = {
+            'timestamp': datetime.now().isoformat(),
+            'ingredient_id': ingredient_id,
+            'current_stock': current_stock,
+            'error': str(e)
+        }
+        
+        with open(daily_dir / error_filename, 'w', encoding='utf-8') as f:
+            json.dump(error_data, f, ensure_ascii=False, indent=2)
+            
         raise HTTPException(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
