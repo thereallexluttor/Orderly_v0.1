@@ -4,6 +4,63 @@ from phi.llm.ollama import Ollama
 from typing import Dict, Any
 import json
 
+def format_analysis_text(text: str) -> str:
+    """
+    Formatea el texto del análisis para una mejor presentación:
+    - Convierte **texto** en texto en negrita
+    - Maneja saltos de línea
+    - Limpia caracteres especiales innecesarios
+    - Formatea listas y enumeraciones
+    """
+    # Reemplazar patrones comunes
+    formatted = text.strip()
+    
+    # Convertir **texto** en HTML bold
+    formatted = formatted.replace('**', '<strong>', 1)
+    while '**' in formatted:
+        formatted = formatted.replace('**', '</strong>', 1)
+        if '**' in formatted:
+            formatted = formatted.replace('**', '<strong>', 1)
+    
+    # Manejar saltos de línea y secciones
+    formatted = formatted.replace('\n\n', '<br><br>')
+    formatted = formatted.replace('| ', '<br>')
+    
+    # Formatear listas numeradas y viñetas
+    lines = formatted.split('\n')
+    formatted_lines = []
+    in_list = False
+    
+    for line in lines:
+        # Detectar listas numeradas (1., 2., etc.)
+        if line.strip().startswith(tuple(f"{i}." for i in range(1, 10))):
+            if not in_list:
+                formatted_lines.append('<ol>')
+                in_list = True
+            formatted_lines.append(f'<li>{line.split(".", 1)[1].strip()}</li>')
+        # Detectar viñetas
+        elif line.strip().startswith('- '):
+            if not in_list:
+                formatted_lines.append('<ul>')
+                in_list = True
+            formatted_lines.append(f'<li>{line[2:].strip()}</li>')
+        else:
+            if in_list:
+                formatted_lines.append('</ol>' if formatted_lines[-2].startswith('<li>') else '</ul>')
+                in_list = False
+            formatted_lines.append(line)
+    
+    if in_list:
+        formatted_lines.append('</ol>' if formatted_lines[-1].startswith('<li>') else '</ul>')
+    
+    formatted = '\n'.join(formatted_lines)
+    
+    # Limpiar caracteres especiales innecesarios
+    formatted = formatted.replace('~~', '')
+    formatted = formatted.replace('```', '')
+    
+    return formatted
+
 class InventoryAnalysisSystem:
     def __init__(self):
         # Initialize LLM once
@@ -21,7 +78,7 @@ class InventoryAnalysisSystem:
                 llm=self.llm,
                 description="Analiza patrones de uso de inventario y tendencias.",
                 instructions=[
-                    "Analizar datos históricos y proporcionar hallazgos clave.",
+                    "Analizar datos y proporcionar hallazgos clave.",
                     "Identificar patrones de consumo y anomalías.",
                     "Proporcionar insights sobre la eficiencia del inventario."
                 ],
@@ -66,7 +123,7 @@ class InventoryAnalysisSystem:
         try:
             # Ejecutar análisis en paralelo con prompts más específicos
             analyses = {
-                "data": self.agents["data_analyst"].run(
+                "data": format_analysis_text(self.agents["data_analyst"].run(
                     f"""Analiza estos datos de inventario:
                     ID: {inventory_data['ingredient_id']}
                     Stock Actual: {inventory_data['current_stock']}
@@ -74,8 +131,8 @@ class InventoryAnalysisSystem:
                     Proporciona un análisis detallado de los patrones históricos,
                     incluyendo tendencias de consumo y eficiencia del inventario.""",
                     stream=False
-                ),
-                "prediction": self.agents["predictor"].run(
+                )),
+                "prediction": format_analysis_text(self.agents["predictor"].run(
                     f"""Analiza estos datos de inventario:
                     ID: {inventory_data['ingredient_id']}
                     Stock Actual: {inventory_data['current_stock']}
@@ -83,8 +140,8 @@ class InventoryAnalysisSystem:
                     Predice la demanda futura, tendencias estacionales y 
                     determina puntos óptimos de reorden.""",
                     stream=False
-                ),
-                "risk": self.agents["risk_analyst"].run(
+                )),
+                "risk": format_analysis_text(self.agents["risk_analyst"].run(
                     f"""Analiza estos datos de inventario:
                     ID: {inventory_data['ingredient_id']}
                     Stock Actual: {inventory_data['current_stock']}
@@ -92,11 +149,11 @@ class InventoryAnalysisSystem:
                     Identifica riesgos potenciales, evalúa su impacto y
                     sugiere medidas de mitigación.""",
                     stream=False
-                )
+                ))
             }
 
             # Análisis cognitivo basado en los resultados de los otros agentes
-            cognitive_analysis = self.agents["cognitive_analyst"].run(
+            cognitive_analysis = format_analysis_text(self.agents["cognitive_analyst"].run(
                 f"""Analiza y contrasta los siguientes análisis de inventario:
 
                 Análisis de Datos: {analyses['data']}
@@ -109,7 +166,7 @@ class InventoryAnalysisSystem:
                 3. Perspectiva integrada y razonada
                 4. Áreas que requieren más atención""",
                 stream=False
-            )
+            ))
 
             return {
                 "analyses": {

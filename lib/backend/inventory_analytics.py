@@ -373,14 +373,33 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                     .agent-card h3 {{
                         color: #2d3748;
                         margin-top: 0;
-                        margin-bottom: 10px;
-                        font-size: 1.1em;
+                        margin-bottom: 15px;
+                        font-size: 1.2em;
+                        border-bottom: 2px solid #e5e9f2;
+                        padding-bottom: 8px;
                     }}
                     .agent-card p {{
                         color: #4a5568;
                         margin: 0;
                         font-size: 0.95em;
-                        line-height: 1.5;
+                        line-height: 1.6;
+                    }}
+                    .agent-card strong {{
+                        color: #2d3748;
+                        font-weight: 600;
+                    }}
+                    .agent-card ul, .agent-card ol {{
+                        margin: 10px 0;
+                        padding-left: 20px;
+                    }}
+                    .agent-card li {{
+                        margin: 5px 0;
+                        color: #4a5568;
+                    }}
+                    .agent-card br {{
+                        display: block;
+                        margin: 8px 0;
+                        content: "";
                     }}
                 </style>
             </head>
