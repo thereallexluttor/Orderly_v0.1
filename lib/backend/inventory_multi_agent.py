@@ -63,115 +63,185 @@ def format_analysis_text(text: str) -> str:
 
 class InventoryAnalysisSystem:
     def __init__(self):
-        # Initialize LLM once
         self.llm = Ollama(model="llama3.2:3b", max_tokens=512)
-        
-        # Create agents once and reuse them
         self._initialize_agents()
 
     def _initialize_agents(self):
-        """Initialize agents once during system startup"""
+        """Initialize the new balanced agent system"""
         self.agents = {
-            "data_analyst": Assistant(
-                name="DataAnalyst",
-                role="Analista de datos de inventario",
+            # Conservative Analysts
+            "conservative_data": Assistant(
+                name="ConservativeDataAnalyst",
+                role="Analista de datos conservador",
                 llm=self.llm,
-                description="Analiza patrones de uso de inventario y tendencias.",
+                description="Analiza datos con enfoque en la estabilidad y minimización de riesgos.",
                 instructions=[
-                    "Analizar datos y proporcionar hallazgos clave.",
-                    "Identificar patrones de consumo y anomalías.",
-                    "Proporcionar insights sobre la eficiencia del inventario."
+                    "Priorizar la estabilidad del inventario sobre la eficiencia.",
+                    "Enfocarse en patrones históricos probados.",
+                    "Identificar riesgos de desabastecimiento.",
+                    "Sugerir niveles de stock seguros."
                 ],
             ),
-            "predictor": Assistant(
-                name="Predictor",
-                role="Especialista en predicción",
+            "conservative_predictor": Assistant(
+                name="ConservativePredictor",
+                role="Predictor conservador",
                 llm=self.llm,
-                description="Predice necesidades futuras de inventario.",
+                description="Realiza predicciones cautelosas priorizando la seguridad del inventario.",
                 instructions=[
-                    "Proporcionar predicción concisa de demanda futura.",
-                    "Identificar tendencias estacionales si existen.",
-                    "Estimar puntos de reorden óptimos."
+                    "Generar predicciones conservadoras de demanda.",
+                    "Mantener márgenes de seguridad amplios.",
+                    "Considerar escenarios pesimistas.",
+                    "Recomendar puntos de reorden seguros."
                 ],
             ),
-            "risk_analyst": Assistant(
-                name="RiskAnalyst",
-                role="Analista de riesgos",
+
+            # Aggressive Analysts
+            "aggressive_data": Assistant(
+                name="AggressiveDataAnalyst",
+                role="Analista de datos agresivo",
                 llm=self.llm,
-                description="Evalúa riesgos de inventario.",
+                description="Analiza datos buscando optimización y eficiencia máxima.",
                 instructions=[
-                    "Identificar principales riesgos.",
-                    "Evaluar impacto potencial en operaciones.",
-                    "Sugerir medidas de mitigación."
+                    "Priorizar la eficiencia y reducción de costos.",
+                    "Identificar oportunidades de optimización.",
+                    "Buscar patrones para reducir stock.",
+                    "Maximizar rotación de inventario."
                 ],
             ),
-            "cognitive_analyst": Assistant(
-                name="CognitiveAnalyst",
-                role="Analista cognitivo",
+            "aggressive_predictor": Assistant(
+                name="AggressivePredictor",
+                role="Predictor agresivo",
                 llm=self.llm,
-                description="Razona y contrasta los análisis de los otros agentes.",
+                description="Realiza predicciones optimistas buscando eficiencia.",
                 instructions=[
-                    "Proporcionar una perspectiva integrada basada en el razonamiento crítico.",
-                    
+                    "Generar predicciones optimizadas.",
+                    "Minimizar stock de seguridad.",
+                    "Considerar escenarios optimistas.",
+                    "Buscar puntos de reorden eficientes."
+                ],
+            ),
+
+            # Balancing Agents
+            "risk_mediator": Assistant(
+                name="RiskMediator",
+                role="Mediador de riesgos",
+                llm=self.llm,
+                description="Equilibra las perspectivas conservadoras y agresivas.",
+                instructions=[
+                    "Contrastar análisis conservadores y agresivos.",
+                    "Proponer soluciones balanceadas.",
+                    "Evaluar trade-offs entre seguridad y eficiencia.",
+                    "Mediar entre diferentes perspectivas."
+                ],
+            ),
+            
+            # Synthesis Agent
+            "synthesis": Assistant(
+                name="SynthesisAgent",
+                role="Agente de síntesis",
+                llm=self.llm,
+                description="Sintetiza todos los análisis en una perspectiva coherente.",
+                instructions=[
+                    "Integrar análisis de todos los agentes.",
+                    "Identificar puntos de consenso y divergencia.",
+                    "Proporcionar recomendaciones balanceadas.",
+                    "Presentar una visión unificada y práctica."
                 ],
             )
         }
 
     def analyze_inventory(self, inventory_data: Dict[str, Any]) -> Dict[str, str]:
         try:
-            # Ejecutar análisis en paralelo con prompts más específicos
+            # Realizar análisis paralelos con diferentes perspectivas
             analyses = {
-                "data": format_analysis_text(self.agents["data_analyst"].run(
-                    f"""Analiza estos datos de inventario:
-                    ID: {inventory_data['ingredient_id']}
-                    Stock Actual: {inventory_data['current_stock']}
-                    
-                    Proporciona un análisis detallado de los patrones históricos,
-                    incluyendo tendencias de consumo y eficiencia del inventario.""",
-                    stream=False
-                )),
-                "prediction": format_analysis_text(self.agents["predictor"].run(
-                    f"""Analiza estos datos de inventario:
-                    ID: {inventory_data['ingredient_id']}
-                    Stock Actual: {inventory_data['current_stock']}
-                    
-                    Predice la demanda futura, tendencias estacionales y 
-                    determina puntos óptimos de reorden.""",
-                    stream=False
-                )),
-                "risk": format_analysis_text(self.agents["risk_analyst"].run(
-                    f"""Analiza estos datos de inventario:
-                    ID: {inventory_data['ingredient_id']}
-                    Stock Actual: {inventory_data['current_stock']}
-                    
-                    Identifica riesgos potenciales, evalúa su impacto y
-                    sugiere medidas de mitigación.""",
-                    stream=False
-                ))
+                "conservative": {
+                    "data": format_analysis_text(self.agents["conservative_data"].run(
+                        f"""Analiza estos datos desde una perspectiva conservadora:
+                        ID: {inventory_data['ingredient_id']}
+                        Stock Actual: {inventory_data['current_stock']}
+                        
+                        Proporciona un análisis detallado priorizando la seguridad del inventario.""",
+                        stream=False
+                    )),
+                    "prediction": format_analysis_text(self.agents["conservative_predictor"].run(
+                        f"""Realiza predicciones conservadoras para:
+                        ID: {inventory_data['ingredient_id']}
+                        Stock Actual: {inventory_data['current_stock']}
+                        
+                        Enfócate en mantener niveles seguros de inventario.""",
+                        stream=False
+                    ))
+                },
+                "aggressive": {
+                    "data": format_analysis_text(self.agents["aggressive_data"].run(
+                        f"""Analiza estos datos buscando eficiencia máxima:
+                        ID: {inventory_data['ingredient_id']}
+                        Stock Actual: {inventory_data['current_stock']}
+                        
+                        Identifica oportunidades de optimización.""",
+                        stream=False
+                    )),
+                    "prediction": format_analysis_text(self.agents["aggressive_predictor"].run(
+                        f"""Realiza predicciones optimizadas para:
+                        ID: {inventory_data['ingredient_id']}
+                        Stock Actual: {inventory_data['current_stock']}
+                        
+                        Busca maximizar la eficiencia del inventario.""",
+                        stream=False
+                    ))
+                }
             }
 
-            # Análisis cognitivo basado en los resultados de los otros agentes
-            cognitive_analysis = format_analysis_text(self.agents["cognitive_analyst"].run(
-                f"""Analiza y contrasta los siguientes análisis de inventario:
+            # Mediación de riesgos
+            risk_mediation = format_analysis_text(self.agents["risk_mediator"].run(
+                f"""Analiza y equilibra las siguientes perspectivas:
 
-                Análisis de Datos: {analyses['data']}
-                Predicciones: {analyses['prediction']}
-                Análisis de Riesgos: {analyses['risk']}
+                Análisis Conservador:
+                Datos: {analyses['conservative']['data']}
+                Predicciones: {analyses['conservative']['prediction']}
+
+                Análisis Agresivo:
+                Datos: {analyses['aggressive']['data']}
+                Predicciones: {analyses['aggressive']['prediction']}
+
+                Proporciona una evaluación balanceada de riesgos y oportunidades.""",
+                stream=False
+            ))
+
+            # Síntesis final
+            final_synthesis = format_analysis_text(self.agents["synthesis"].run(
+                f"""Sintetiza todos los análisis:
+
+                Perspectiva Conservadora:
+                {analyses['conservative']['data']}
+                {analyses['conservative']['prediction']}
+
+                Perspectiva Agresiva:
+                {analyses['aggressive']['data']}
+                {analyses['aggressive']['prediction']}
+
+                Mediación de Riesgos:
+                {risk_mediation}
 
                 Proporciona:
-                
-                1. Perspectiva integrada y razonada
-
-                """,
+                1. Síntesis global
+                2. Recomendaciones prácticas
+                3. Puntos clave de consenso""",
                 stream=False
             ))
 
             return {
                 "analyses": {
-                    "data_analysis": analyses["data"],
-                    "prediction_analysis": analyses["prediction"],
-                    "risk_analysis": analyses["risk"],
-                    "cognitive_analysis": cognitive_analysis
+                    "conservative_analysis": {
+                        "data": analyses["conservative"]["data"],
+                        "prediction": analyses["conservative"]["prediction"]
+                    },
+                    "aggressive_analysis": {
+                        "data": analyses["aggressive"]["data"],
+                        "prediction": analyses["aggressive"]["prediction"]
+                    },
+                    "risk_mediation": risk_mediation,
+                    "final_synthesis": final_synthesis
                 }
             }
 

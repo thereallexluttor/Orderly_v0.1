@@ -477,21 +477,31 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                     <div class="agent-analysis-container">
                         <h2>Análisis Multi-Agente AI</h2>
                         <div class="agent-cards">
-                            <div class="agent-card">
-                                <h3>Análisis de Datos</h3>
-                                <p>{agent_analysis['analyses']['data_analysis']}</p>
+                            <div class="agent-card conservative">
+                                <h3>Perspectiva Conservadora</h3>
+                                <div class="sub-analysis">
+                                    <h4>Análisis de Datos</h4>
+                                    <p>{agent_analysis['analyses']['conservative_analysis']['data']}</p>
+                                    <h4>Predicciones</h4>
+                                    <p>{agent_analysis['analyses']['conservative_analysis']['prediction']}</p>
+                                </div>
                             </div>
-                            <div class="agent-card">
-                                <h3>Análisis Predictivo</h3>
-                                <p>{agent_analysis['analyses']['prediction_analysis']}</p>
+                            <div class="agent-card aggressive">
+                                <h3>Perspectiva Agresiva</h3>
+                                <div class="sub-analysis">
+                                    <h4>Análisis de Datos</h4>
+                                    <p>{agent_analysis['analyses']['aggressive_analysis']['data']}</p>
+                                    <h4>Predicciones</h4>
+                                    <p>{agent_analysis['analyses']['aggressive_analysis']['prediction']}</p>
+                                </div>
                             </div>
-                            <div class="agent-card">
-                                <h3>Análisis de Riesgos</h3>
-                                <p>{agent_analysis['analyses']['risk_analysis']}</p>
+                            <div class="agent-card mediation">
+                                <h3>Mediación de Riesgos</h3>
+                                <p>{agent_analysis['analyses']['risk_mediation']}</p>
                             </div>
-                            <div class="agent-card">
-                                <h3>Análisis Cognitivo</h3>
-                                <p>{agent_analysis['analyses']['cognitive_analysis']}</p>
+                            <div class="agent-card synthesis">
+                                <h3>Síntesis Final</h3>
+                                <p>{agent_analysis['analyses']['final_synthesis']}</p>
                             </div>
                         </div>
                     </div>
