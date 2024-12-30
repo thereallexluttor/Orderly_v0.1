@@ -1,6 +1,6 @@
 from textwrap import dedent
-from phi.assistant import Assistant
-from phi.llm.ollama import Ollama
+from phi.agent import Agent
+from phi.model.ollama import Ollama
 from typing import Dict, Any
 import json
 from datetime import datetime
@@ -69,17 +69,20 @@ def format_analysis_text(text: str) -> str:
 
 class InventoryAnalysisSystem:
     def __init__(self):
-        self.llm = Ollama(model="llama3.2:3b", max_tokens=1024)
+        self.llm = Ollama(
+            model="llama3.2:3b",
+            max_tokens=1024
+        )
         self._initialize_agents()
 
     def _initialize_agents(self):
         """Initialize the balanced agent system with improved prompts"""
         self.agents = {
             # Conservative Analysts
-            "conservative_data": Assistant(
+            "conservative_data": Agent(
                 name="ConservativeDataAnalyst",
                 role="Analista de datos conservador del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como parte integral del sistema de control de inventario, analizo datos con enfoque 
                     en la estabilidad y seguridad del inventario. Mi objetivo es asegurar la transparencia 
@@ -92,12 +95,12 @@ class InventoryAnalysisSystem:
                     "Proponer niveles de stock de seguridad basados en datos históricos y políticas de la empresa",
                     "Asegurar que las recomendaciones apoyen la transparencia y trazabilidad del inventario",
                     "Formato de salida: Análisis estructurado con secciones claras y recomendaciones específicas"
-                ],
+                ]
             ),
-            "conservative_predictor": Assistant(
+            "conservative_predictor": Agent(
                 name="ConservativePredictor",
                 role="Predictor conservador del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como componente del sistema de control de inventario, genero predicciones cautelosas 
                     que priorizan la seguridad y continuidad del suministro. Mi enfoque busca mantener 
@@ -110,14 +113,14 @@ class InventoryAnalysisSystem:
                     "Recomendar puntos de reorden que aseguren la flexibilidad del sistema",
                     "Asegurar que las predicciones apoyen la adaptabilidad del inventario",
                     "Formato de salida: Predicciones numéricas con intervalos de confianza y justificación"
-                ],
+                ]
             ),
 
             # Aggressive Analysts
-            "aggressive_data": Assistant(
+            "aggressive_data": Agent(
                 name="AggressiveDataAnalyst",
                 role="Analista de datos agresivo del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como parte del sistema de control de inventario, optimizo la eficiencia y reducción 
                     de costos mientras mantengo la transparencia y adaptabilidad del sistema. Mi enfoque 
@@ -130,12 +133,12 @@ class InventoryAnalysisSystem:
                     "Identificar ineficiencias en la gestión actual y proponer mejoras sistemáticas",
                     "Asegurar que las optimizaciones apoyen la transparencia del sistema",
                     "Formato de salida: Análisis cuantitativo con métricas de eficiencia y recomendaciones"
-                ],
+                ]
             ),
-            "aggressive_predictor": Assistant(
+            "aggressive_predictor": Agent(
                 name="AggressivePredictor",
                 role="Predictor agresivo del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como elemento del sistema de control de inventario, genero predicciones optimizadas 
                     que buscan máxima eficiencia mientras mantengo la integridad y adaptabilidad del 
@@ -148,14 +151,14 @@ class InventoryAnalysisSystem:
                     "Identificar oportunidades de mejora en la cadena de suministro",
                     "Asegurar que las predicciones apoyen la transparencia del sistema",
                     "Formato de salida: Predicciones detalladas con análisis de sensibilidad"
-                ],
+                ]
             ),
 
             # Risk Mediator
-            "risk_mediator": Assistant(
+            "risk_mediator": Agent(
                 name="RiskMediator",
                 role="Mediador de riesgos del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como coordinador dentro del sistema de control de inventario, equilibro la seguridad 
                     y eficiencia, asegurando que las decisiones apoyen la transparencia y adaptabilidad 
@@ -168,14 +171,14 @@ class InventoryAnalysisSystem:
                     "Recomendar estrategias de mitigación alineadas con los objetivos del sistema",
                     "Asegurar que las mediaciones apoyen la transparencia y flexibilidad",
                     "Formato de salida: Análisis comparativo con recomendaciones equilibradas"
-                ],
+                ]
             ),
             
             # Synthesis Agent
-            "synthesis": Assistant(
+            "synthesis": Agent(
                 name="SynthesisAgent",
                 role="Agente de síntesis del sistema de control de inventario",
-                llm=self.llm,
+                model=Ollama(id="llama3.2:3b"),
                 description=dedent("""
                     Como integrador final del sistema de control de inventario, sintetizo todos los 
                     análisis en recomendaciones accionables que aseguren la transparencia, seguridad 
@@ -188,7 +191,7 @@ class InventoryAnalysisSystem:
                     "Considerar restricciones y recursos disponibles del sistema",
                     "Asegurar que la síntesis promueva la transparencia y adaptabilidad",
                     "Formato de salida: Síntesis estructurada con plan de acción claro"
-                ],
+                ]
             )
         }
 
@@ -251,16 +254,15 @@ class InventoryAnalysisSystem:
     def _perform_parallel_analysis(self, data: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """Realiza análisis paralelos con diferentes perspectivas"""
         def get_agent_response(agent, prompt):
-            """Helper function to get response from agent and convert to string"""
-            response = agent.run(prompt, stream=False)  # Aseguramos que stream=False
-            # Si es un generador, convertimos a string
-            if hasattr(response, '__iter__') and not isinstance(response, str):
-                return ''.join(list(response))
-            return response
+            """Helper function to get response from agent"""
+            response = agent.run(prompt)
+            # Extraer el contenido del RunResponse
+            response_text = response.content if hasattr(response, 'content') else str(response)
+            return format_analysis_text(response_text)
 
         return {
             "conservative": {
-                "data": format_analysis_text(get_agent_response(
+                "data": get_agent_response(
                     self.agents["conservative_data"],
                     f"""Analiza estos datos desde una perspectiva conservadora:
                     ID: {data['ingredient_id']}
@@ -268,8 +270,8 @@ class InventoryAnalysisSystem:
                     Métricas: {json.dumps(data['metrics'], indent=2)}
                     
                     Proporciona un análisis detallado priorizando la seguridad del inventario."""
-                )),
-                "prediction": format_analysis_text(get_agent_response(
+                ),
+                "prediction": get_agent_response(
                     self.agents["conservative_predictor"],
                     f"""Realiza predicciones conservadoras para:
                     ID: {data['ingredient_id']}
@@ -277,10 +279,10 @@ class InventoryAnalysisSystem:
                     Métricas: {json.dumps(data['metrics'], indent=2)}
                     
                     Enfócate en mantener niveles seguros de inventario."""
-                ))
+                )
             },
             "aggressive": {
-                "data": format_analysis_text(get_agent_response(
+                "data": get_agent_response(
                     self.agents["aggressive_data"],
                     f"""Analiza estos datos buscando eficiencia máxima:
                     ID: {data['ingredient_id']}
@@ -288,8 +290,8 @@ class InventoryAnalysisSystem:
                     Métricas: {json.dumps(data['metrics'], indent=2)}
                     
                     Identifica oportunidades de optimización."""
-                )),
-                "prediction": format_analysis_text(get_agent_response(
+                ),
+                "prediction": get_agent_response(
                     self.agents["aggressive_predictor"],
                     f"""Realiza predicciones optimizadas para:
                     ID: {data['ingredient_id']}
@@ -297,7 +299,7 @@ class InventoryAnalysisSystem:
                     Métricas: {json.dumps(data['metrics'], indent=2)}
                     
                     Busca maximizar la eficiencia del inventario."""
-                ))
+                )
             }
         }
 
@@ -314,12 +316,11 @@ class InventoryAnalysisSystem:
             {analyses['aggressive']['data']}
             {analyses['aggressive']['prediction']}
 
-            Proporciona una evaluación balanceada de riesgos y oportunidades.""",
-            stream=False
+            Proporciona una evaluación balanceada de riesgos y oportunidades."""
         )
-        if hasattr(response, '__iter__') and not isinstance(response, str):
-            response = ''.join(list(response))
-        return format_analysis_text(response)
+        # Extraer el contenido del RunResponse
+        response_text = response.content if hasattr(response, 'content') else str(response)
+        return format_analysis_text(response_text)
 
     def _perform_synthesis(self, analyses: Dict[str, Dict[str, str]], risk_mediation: str) -> str:
         """Realiza la síntesis final de todos los análisis"""
@@ -341,10 +342,9 @@ class InventoryAnalysisSystem:
             1. Síntesis global
             2. Recomendaciones prácticas y accionables
             3. Plan de implementación priorizado
-            4. Métricas clave a monitorear""",
-            stream=False
+            4. Métricas clave a monitorear"""
         )
-        if hasattr(response, '__iter__') and not isinstance(response, str):
-            response = ''.join(list(response))
-        return format_analysis_text(response)
+        # Extraer el contenido del RunResponse
+        response_text = response.content if hasattr(response, 'content') else str(response)
+        return format_analysis_text(response_text)
 
