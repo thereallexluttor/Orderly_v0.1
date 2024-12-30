@@ -5,6 +5,7 @@ from typing import Dict, Any
 import json
 from datetime import datetime
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +70,14 @@ def format_analysis_text(text: str) -> str:
 
 class InventoryAnalysisSystem:
     def __init__(self):
-        self.llm = Ollama(model="llama3.2:3b", max_tokens=1024)
+        self.llm = Ollama(
+            model="qwen2.5:1.5b",
+            max_tokens=150,
+            num_gpu=1,
+            num_thread=12,
+            f16=True,
+            gpu_layers=120
+        )
         self._initialize_agents()
 
     def _initialize_agents(self):
@@ -252,14 +260,13 @@ class InventoryAnalysisSystem:
         """Realiza análisis paralelos con diferentes perspectivas"""
         def get_agent_response(agent, prompt):
             """Helper function to get response from agent and convert to string"""
-            response = agent.run(prompt, stream=False)  # Aseguramos que stream=False
-            # Si es un generador, convertimos a string
+            response = agent.run(prompt, stream=False)
             if hasattr(response, '__iter__') and not isinstance(response, str):
                 return ''.join(list(response))
             return response
 
-        return {
-            "conservative": {
+        def process_conservative_analysis():
+            return {
                 "data": format_analysis_text(get_agent_response(
                     self.agents["conservative_data"],
                     f"""Analiza estos datos desde una perspectiva conservadora:
@@ -278,8 +285,10 @@ class InventoryAnalysisSystem:
                     
                     Enfócate en mantener niveles seguros de inventario."""
                 ))
-            },
-            "aggressive": {
+            }
+
+        def process_aggressive_analysis():
+            return {
                 "data": format_analysis_text(get_agent_response(
                     self.agents["aggressive_data"],
                     f"""Analiza estos datos buscando eficiencia máxima:
@@ -299,7 +308,16 @@ class InventoryAnalysisSystem:
                     Busca maximizar la eficiencia del inventario."""
                 ))
             }
-        }
+
+        # Ejecutar análisis en paralelo usando ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            conservative_future = executor.submit(process_conservative_analysis)
+            aggressive_future = executor.submit(process_aggressive_analysis)
+
+            return {
+                "conservative": conservative_future.result(),
+                "aggressive": aggressive_future.result()
+            }
 
     def _perform_risk_mediation(self, analyses: Dict[str, Dict[str, str]]) -> str:
         """Realiza la mediación de riesgos entre análisis"""
