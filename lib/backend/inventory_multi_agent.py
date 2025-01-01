@@ -77,9 +77,9 @@ class InventoryAnalysisSystem:
 
     def _initialize_agents(self):
         """Initialize the balanced agent system with improved prompts"""
-        self.agents = {
-            # Conservative Analysts
-            "conservative_data": Agent(
+
+        # Conservative Analysts
+        conservative_data = Agent(
                 name="ConservativeDataAnalyst",
                 role="Analista de datos conservador del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
@@ -95,12 +95,19 @@ class InventoryAnalysisSystem:
                     "Proponer niveles de stock de seguridad basados en datos históricos y políticas de la empresa",
                     "Asegurar que las recomendaciones apoyen la transparencia y trazabilidad del inventario",
                     "Formato de salida: Análisis estructurado con secciones claras y recomendaciones específicas"
-                ]
-            ),
-            "conservative_predictor": Agent(
+                ],
+                additional_information={
+                    "analysis_type": "conservative",
+                    "data_focus": "historical_patterns"
+                }
+            )
+
+        # Inicializar el predictor conservador después de crear el analista de datos
+        conservative_predictor = Agent(
                 name="ConservativePredictor",
                 role="Predictor conservador del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
+                team=[conservative_data],
                 description=dedent("""
                     Como componente del sistema de control de inventario, genero predicciones cautelosas 
                     que priorizan la seguridad y continuidad del suministro. Mi enfoque busca mantener 
@@ -113,11 +120,15 @@ class InventoryAnalysisSystem:
                     "Recomendar puntos de reorden que aseguren la flexibilidad del sistema",
                     "Asegurar que las predicciones apoyen la adaptabilidad del inventario",
                     "Formato de salida: Predicciones numéricas con intervalos de confianza y justificación"
-                ]
-            ),
+                ],
+                additional_information={
+                    "data_source": "conservative_data",
+                    "prediction_type": "inventory_levels"
+                }
+            )
 
             # Aggressive Analysts
-            "aggressive_data": Agent(
+        aggressive_data = Agent(
                 name="AggressiveDataAnalyst",
                 role="Analista de datos agresivo del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
@@ -133,9 +144,13 @@ class InventoryAnalysisSystem:
                     "Identificar ineficiencias en la gestión actual y proponer mejoras sistemáticas",
                     "Asegurar que las optimizaciones apoyen la transparencia del sistema",
                     "Formato de salida: Análisis cuantitativo con métricas de eficiencia y recomendaciones"
-                ]
-            ),
-            "aggressive_predictor": Agent(
+                ],
+                additional_information={
+                    "analysis_type": "aggressive",
+                    "optimization_focus": "efficiency_and_cost"
+                }
+            )
+        aggressive_predictor = Agent(
                 name="AggressivePredictor",
                 role="Predictor agresivo del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
@@ -152,10 +167,10 @@ class InventoryAnalysisSystem:
                     "Asegurar que las predicciones apoyen la transparencia del sistema",
                     "Formato de salida: Predicciones detalladas con análisis de sensibilidad"
                 ]
-            ),
+            )
 
             # Risk Mediator
-            "risk_mediator": Agent(
+        risk_mediator = Agent(
                 name="RiskMediator",
                 role="Mediador de riesgos del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
@@ -172,10 +187,10 @@ class InventoryAnalysisSystem:
                     "Asegurar que las mediaciones apoyen la transparencia y flexibilidad",
                     "Formato de salida: Análisis comparativo con recomendaciones equilibradas"
                 ]
-            ),
+            )
             
             # Synthesis Agent
-            "synthesis": Agent(
+        synthesis = Agent(
                 name="SynthesisAgent",
                 role="Agente de síntesis del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
@@ -193,6 +208,13 @@ class InventoryAnalysisSystem:
                     "Formato de salida: Síntesis estructurada con plan de acción claro"
                 ]
             )
+        self.agents = {
+            "conservative_data": conservative_data,
+            "conservative_predictor": conservative_predictor,
+            "aggressive_data": aggressive_data,
+            "aggressive_predictor": aggressive_predictor,
+            "risk_mediator": risk_mediator,
+            "synthesis": synthesis
         }
 
     def analyze_inventory(self, inventory_data: Dict[str, Any]) -> Dict[str, Any]:
