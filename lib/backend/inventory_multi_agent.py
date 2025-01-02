@@ -147,13 +147,15 @@ class InventoryAnalysisSystem:
                 ],
                 additional_information={
                     "analysis_type": "aggressive",
-                    "optimization_focus": "efficiency_and_cost"
+                    "optimization_focus": "efficiency_and_cost",
+                    "transfer_requirements": ["expected_output", "task_description"]
                 }
             )
         aggressive_predictor = Agent(
                 name="AggressivePredictor",
                 role="Predictor agresivo del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
+                team=[aggressive_data],
                 description=dedent("""
                     Como elemento del sistema de control de inventario, genero predicciones optimizadas 
                     que buscan máxima eficiencia mientras mantengo la integridad y adaptabilidad del 
@@ -166,7 +168,23 @@ class InventoryAnalysisSystem:
                     "Identificar oportunidades de mejora en la cadena de suministro",
                     "Asegurar que las predicciones apoyen la transparencia del sistema",
                     "Formato de salida: Predicciones detalladas con análisis de sensibilidad"
-                ]
+                ],
+                additional_information={
+                    "data_source": "aggressive_data",
+                    "prediction_type": "inventory_levels",
+                    "optimization_methods": [
+                        "demand_trend", 
+                        "optimized_demand",
+                        "optimized_sales",
+                        "stock_trend"
+                    ],
+                    "required_functions": [
+                        "predict_optimized_demand",
+                        "calculate_optimistic_demand_trend",
+                        "predict_optimized_sales",
+                        "predict_stock_trend"
+                    ]
+                }
             )
 
             # Risk Mediator
@@ -186,7 +204,11 @@ class InventoryAnalysisSystem:
                     "Recomendar estrategias de mitigación alineadas con los objetivos del sistema",
                     "Asegurar que las mediaciones apoyen la transparencia y flexibilidad",
                     "Formato de salida: Análisis comparativo con recomendaciones equilibradas"
-                ]
+                ],
+                additional_information={
+                    "analysis_type": "risk_mediation",
+                    "mediation_focus": "balance_and_risk"
+                }
             )
             
             # Synthesis Agent
@@ -194,6 +216,7 @@ class InventoryAnalysisSystem:
                 name="SynthesisAgent",
                 role="Agente de síntesis del sistema de control de inventario",
                 model=Ollama(id="llama3.2:3b"),
+                team=[conservative_predictor, aggressive_predictor, risk_mediator],
                 description=dedent("""
                     Como integrador final del sistema de control de inventario, sintetizo todos los 
                     análisis en recomendaciones accionables que aseguren la transparencia, seguridad 
@@ -206,7 +229,11 @@ class InventoryAnalysisSystem:
                     "Considerar restricciones y recursos disponibles del sistema",
                     "Asegurar que la síntesis promueva la transparencia y adaptabilidad",
                     "Formato de salida: Síntesis estructurada con plan de acción claro"
-                ]
+                ],
+                additional_information={
+                    "analysis_type": "synthesis",
+                    "synthesis_focus": "actionable_recommendations"
+                }
             )
         self.agents = {
             "conservative_data": conservative_data,
@@ -275,12 +302,42 @@ class InventoryAnalysisSystem:
 
     def _perform_parallel_analysis(self, data: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """Realiza análisis paralelos con diferentes perspectivas"""
-        def get_agent_response(agent, prompt):
-            """Helper function to get response from agent"""
-            response = agent.run(prompt)
-            # Extraer el contenido del RunResponse
-            response_text = response.content if hasattr(response, 'content') else str(response)
-            return format_analysis_text(response_text)
+        def get_agent_response(agent, prompt, expected_output=None):
+            """Helper function to get response from agent with error handling"""
+            try:
+                # Create proper additional_information structure
+                additional_info = {
+                    "additional_information": {  # This nested structure is important
+                        "expected_output": expected_output,
+                        "task_description": prompt,
+                        "available_functions": [
+                            "predict_optimized_demand",
+                            "calculate_optimistic_demand_trend",
+                            "predict_optimized_sales",
+                            "predict_stock_trend"
+                        ]
+                    }
+                }
+                
+                response = agent.run(
+                    prompt,
+                    **additional_info  # Pass as kwargs
+                )
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                return format_analysis_text(response_text)
+            except Exception as e:
+                logger.error(f"Error en get_agent_response: {str(e)}")
+                return f"Error en el análisis: {str(e)}"
+
+        # Prepare expected_output structure
+        expected_output = {
+            "analysis_type": "inventory",
+            "data": {
+                "ID": data['ingredient_id'],
+                "Stock_Actual": data['current_stock'],
+                "Métricas": data['metrics']
+            }
+        }
 
         return {
             "conservative": {
@@ -289,18 +346,16 @@ class InventoryAnalysisSystem:
                     f"""Analiza estos datos desde una perspectiva conservadora:
                     ID: {data['ingredient_id']}
                     Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Proporciona un análisis detallado priorizando la seguridad del inventario."""
+                    Métricas: {json.dumps(data['metrics'], indent=2)}""",
+                    expected_output
                 ),
                 "prediction": get_agent_response(
                     self.agents["conservative_predictor"],
                     f"""Realiza predicciones conservadoras para:
                     ID: {data['ingredient_id']}
                     Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Enfócate en mantener niveles seguros de inventario."""
+                    Métricas: {json.dumps(data['metrics'], indent=2)}""",
+                    expected_output
                 )
             },
             "aggressive": {
@@ -309,18 +364,16 @@ class InventoryAnalysisSystem:
                     f"""Analiza estos datos buscando eficiencia máxima:
                     ID: {data['ingredient_id']}
                     Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Identifica oportunidades de optimización."""
+                    Métricas: {json.dumps(data['metrics'], indent=2)}""",
+                    expected_output
                 ),
                 "prediction": get_agent_response(
                     self.agents["aggressive_predictor"],
                     f"""Realiza predicciones optimizadas para:
                     ID: {data['ingredient_id']}
                     Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Busca maximizar la eficiencia del inventario."""
+                    Métricas: {json.dumps(data['metrics'], indent=2)}""",
+                    expected_output
                 )
             }
         }
@@ -369,4 +422,79 @@ class InventoryAnalysisSystem:
         # Extraer el contenido del RunResponse
         response_text = response.content if hasattr(response, 'content') else str(response)
         return format_analysis_text(response_text)
+
+def predict_optimized_demand(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Predice la demanda optimizada basada en los datos históricos
+    """
+    try:
+        current_stock = data.get('current_stock', 0)
+        # Implementar lógica de predicción aquí
+        predicted_demand = current_stock * 0.8  # Ejemplo simple
+        return {
+            "predicted_demand": predicted_demand,
+            "confidence_level": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error en predict_optimized_demand: {str(e)}")
+        return {"error": str(e)}
+
+def calculate_optimistic_demand_trend(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calcula la tendencia de demanda optimista
+    """
+    try:
+        current_stock = data.get('current_stock', 0)
+        # Implementar cálculo de tendencia aquí
+        trend = current_stock * 1.2  # Ejemplo simple
+        return {
+            "trend": trend,
+            "growth_rate": 0.2,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error en calculate_optimistic_demand_trend: {str(e)}")
+        return {"error": str(e)}
+
+def predict_optimized_sales(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Predice las ventas optimizadas basadas en datos históricos y tendencias
+    """
+    try:
+        current_stock = data.get('current_stock', 0)
+        # Implementar lógica de predicción de ventas
+        predicted_sales = current_stock * 0.7  # Ejemplo simple
+        return {
+            "predicted_sales": predicted_sales,
+            "confidence_level": 0.80,
+            "forecast_period": "30 days",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error en predict_optimized_sales: {str(e)}")
+        return {"error": str(e)}
+
+def predict_stock_trend(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Predice la tendencia del stock basada en patrones históricos
+    """
+    try:
+        current_stock = data.get('current_stock', 0)
+        # Implementar lógica de predicción de tendencia
+        trend_factor = 1.1
+        predicted_trend = current_stock * trend_factor
+        return {
+            "current_level": current_stock,
+            "predicted_trend": predicted_trend,
+            "trend_factor": trend_factor,
+            "confidence_interval": {
+                "lower": predicted_trend * 0.9,
+                "upper": predicted_trend * 1.1
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error en predict_stock_trend: {str(e)}")
+        return {"error": str(e)}
 
