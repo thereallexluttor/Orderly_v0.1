@@ -7,6 +7,7 @@ from datetime import datetime
 import logging
 from phi.model.deepseek import DeepSeekChat
 from phi.model.google import Gemini
+import os
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -84,21 +85,17 @@ class InventoryAnalysisSystem:
             "conservative_data": Agent(
                 name="ConservativeDataAnalyst",
                 role="Analista de datos conservador del sistema de control de inventario",
-                ##model=Ollama(id="llama3.2:3b"),
-                ##model=DeepSeekChat(id="deepseek-chat"),
                 model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
-                    Como parte integral del sistema de control de inventario, analizo datos con enfoque 
-                    en la estabilidad y seguridad del inventario. Mi objetivo es asegurar la transparencia 
-                    y confiabilidad en el manejo de existencias."""),
+                    Como parte integral del sistema de control de inventario, analizo datos actuales 
+                    e históricos con enfoque en la estabilidad y seguridad del inventario."""),
                 instructions=[
-                    "Analizar patrones históricos de uso del inventario para garantizar la continuidad operativa",
-                    "Identificar tendencias de consumo y estacionalidad que afecten la seguridad del stock",
-                    "Evaluar riesgos de desabastecimiento y sobrestock considerando el impacto en el negocio",
-                    "Considerar factores externos que puedan afectar la estabilidad del inventario",
-                    "Proponer niveles de stock de seguridad basados en datos históricos y políticas de la empresa",
-                    "Asegurar que las recomendaciones apoyen la transparencia y trazabilidad del inventario",
-                    "Formato de salida: Análisis estructurado con secciones claras y recomendaciones específicas"
+                    "Analizar patrones históricos y actuales del uso del inventario",
+                    "Comparar tendencias actuales con datos históricos para identificar patrones",
+                    "Evaluar la consistencia del uso a lo largo del tiempo",
+                    "Identificar desviaciones significativas del comportamiento histórico",
+                    "Considerar el contexto histórico en las recomendaciones de stock",
+                    "Formato de salida: Análisis estructurado comparando datos actuales e históricos"
                 ]
             ),
             "conservative_predictor": Agent(
@@ -211,17 +208,31 @@ class InventoryAnalysisSystem:
 
     def analyze_inventory(self, inventory_data: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            # Enriquecer datos de entrada con métricas calculadas
-            enriched_data = self._enrich_inventory_data(inventory_data)
+            # Cargar datos históricos
+            base_path = os.path.dirname(os.path.abspath(__file__))
+            today = datetime.now().strftime('%Y-%m-%d')
+            history_path = os.path.join(base_path, "inventory_data", today)
             
-            # Realizar análisis paralelos
+            historical_context = {}
+            if os.path.exists(history_path):
+                # Obtener el archivo más reciente
+                files = [f for f in os.listdir(history_path) if f.endswith('.json')]
+                if files:
+                    latest_file = max(files)  # Obtiene el archivo más reciente
+                    with open(os.path.join(history_path, latest_file), 'r', encoding='utf-8') as f:
+                        historical_context = json.load(f)
+            
+            # Enriquecer datos de entrada con métricas calculadas y contexto histórico
+            enriched_data = self._enrich_inventory_data(inventory_data)
+            enriched_data['historical_context'] = historical_context
+            
+            # Realizar análisis paralelos con contexto histórico
             analyses = self._perform_parallel_analysis(enriched_data)
             
             # Realizar mediación y síntesis
             risk_mediation = self._perform_risk_mediation(analyses)
             final_synthesis = self._perform_synthesis(analyses, risk_mediation)
 
-            # Estructura corregida para coincidir con el formato esperado
             return {
                 "analyses": {
                     "conservative_analysis": {
@@ -259,10 +270,22 @@ class InventoryAnalysisSystem:
         enriched = {
             **data,
             "analysis_timestamp": datetime.now().isoformat(),
+            
             "metrics": {
                 "stock_value": data.get("current_stock", 0),
+                "total_usage": data.get("stats", {}).get("total_usage", 0),
+                "avg_daily_usage": data.get("stats", {}).get("avg_daily_usage", 0), 
+                "max_daily_usage": data.get("stats", {}).get("max_daily_usage", 0),
+                "total_days": data.get("stats", {}).get("total_days", 0),
+                "predicted_usage_3days": data.get("stats", {}).get("predicted_usage_3days", 0),
+                "predicted_avg_daily": data.get("stats", {}).get("predicted_avg_daily", 0),
+                "predicted_daily_usage": data.get("stats", {}).get("restock_status", {}).get("predicted_daily_usage", 0),
+                "recent_daily_average": data.get("stats", {}).get("restock_status", {}).get("recent_daily_average", 0),
+                "days_remaining": data.get("stats", {}).get("restock_status", {}).get("days_remaining", 0),
                 # Add more calculated metrics as needed
             }
+                # Add more calculated metrics as needed
+            
         }
 
         # Incluir datos de las gráficas si están disponibles
@@ -318,33 +341,46 @@ class InventoryAnalysisSystem:
             "conservative": {
                 "data": get_agent_response(
                     self.agents["conservative_data"],
-                    f"""Analiza cuantitativamente estos datos de inventario:
+                    f"""IMPORTANTE: Debes realizar el análisis incluso si los datos están incompletos o son de baja calidad. 
+                    Si faltan datos, usa aproximaciones y asunciones razonables, indicando claramente cuáles usaste.
 
-                    Datos Completos del Ingrediente:
+                    Analiza estos datos de inventario:
                     {json.dumps(data_context, indent=2)}
 
-                    Realiza:
-                    1. Análisis estadístico del uso histórico (media, mediana, desviación estándar)
-                    2. Cálculo de tendencias y patrones estacionales
-                    3. Identificación de valores atípicos y su impacto
-                    4. Correlación entre variables
-                    5. Intervalos de confianza para las predicciones
+                    REQUERIDO - Debes calcular y proporcionar:
+                    1. Análisis estadístico del uso (media, mediana, desviación) - usa aproximaciones si es necesario
+                    2. Tendencias y patrones - incluso con datos limitados
+                    3. Valores atípicos e impacto - asume valores típicos si faltan datos
+                    4. Correlaciones entre variables disponibles
+                    5. Intervalos de confianza - ajusta según la calidad de datos
 
-                    Enfócate en análisis numérico y estadístico, NO en recomendaciones generales."""
+                    Si los datos son insuficientes para algún cálculo, DEBES:
+                    - Usar promedios del sector o estimaciones razonables
+                    - Documentar claramente las asunciones usadas
+                    - Ajustar los intervalos de confianza según la incertidumbre
+
+                    Enfócate solo en análisis numérico y estadístico."""
                 ),
                 "prediction": get_agent_response(
                     self.agents["conservative_predictor"],
-                    f"""Genera predicciones basadas en análisis cuantitativo:
+                    f"""IMPORTANTE: Debes generar predicciones incluso con datos limitados o de baja calidad.
+                    Usa aproximaciones y asunciones conservadoras cuando sea necesario.
 
-                    Datos Completos del Ingrediente:
+                    Datos disponibles:
                     {json.dumps(data_context, indent=2)}
 
-                    Calcula:
-                    1. Proyecciones con intervalos de confianza del 95%
-                    2. Probabilidad de desabastecimiento
-                    3. Análisis de series temporales (tendencia, estacionalidad, ciclos)
-                    4. Estimación de error en las predicciones (MAPE, MAE, RMSE)
-                    5. Pruebas estadísticas de significancia
+                    REQUERIDO - Debes calcular y proporcionar:
+                    1. Proyecciones con intervalos de confianza amplios para compensar incertidumbre
+                    2. Probabilidad de desabastecimiento - usa estimaciones conservadoras
+                    3. Análisis de series temporales - aproxima con datos disponibles
+                    4. Estimación de error en predicciones
+                    5. Pruebas estadísticas posibles con los datos existentes
+
+                    Si los datos son insuficientes, DEBES:
+                    - Usar datos históricos similares o promedios del sector
+                    - Aumentar márgenes de error y rangos de predicción
+                    - Documentar todas las asunciones y aproximaciones
+                    - Ajustar predicciones al peor escenario razonable
 
                     Proporciona solo análisis numérico y estadístico."""
                 )
@@ -352,35 +388,49 @@ class InventoryAnalysisSystem:
             "aggressive": {
                 "data": get_agent_response(
                     self.agents["aggressive_data"],
-                    f"""Realiza un análisis cuantitativo de eficiencia:
+                    f"""IMPORTANTE: Debes realizar análisis de eficiencia incluso con datos limitados.
+                    Usa benchmarks del sector y aproximaciones cuando sea necesario.
 
-                    Datos Completos del Ingrediente:
+                    Datos disponibles:
                     {json.dumps(data_context, indent=2)}
 
-                    Calcula:
-                    1. Ratios de rotación de inventario
-                    2. Análisis de costos de almacenamiento
-                    3. Optimización de puntos de reorden
-                    4. Eficiencia del uso de espacio
-                    5. Análisis de varianza en el uso
+                    REQUERIDO - Debes calcular y proporcionar:
+                    1. Ratios de rotación - usa aproximaciones si faltan datos
+                    2. Costos de almacenamiento - estima basado en promedios del sector
+                    3. Puntos de reorden optimizados - usa datos disponibles o aproximaciones
+                    4. Eficiencia de espacio - calcula con información limitada
+                    5. Análisis de varianza - ajusta según datos disponibles
 
-                    Enfócate en métricas y cálculos, NO en recomendaciones cualitativas."""
+                    Si los datos son insuficientes, DEBES:
+                    - Usar benchmarks de la industria
+                    - Aplicar modelos simplificados pero funcionales
+                    - Documentar claramente aproximaciones y asunciones
+                    - Proponer optimizaciones basadas en datos parciales
+
+                    Solo análisis basado en métricas y cálculos."""
                 ),
                 "prediction": get_agent_response(
                     self.agents["aggressive_predictor"],
-                    f"""Genera predicciones optimizadas basadas en datos:
+                    f"""IMPORTANTE: Debes generar predicciones optimizadas incluso con datos limitados.
+                    Usa modelos simplificados y aproximaciones cuando sea necesario.
 
-                    Datos Completos del Ingrediente:
+                    Datos disponibles:
                     {json.dumps(data_context, indent=2)}
 
-                    Calcula:
-                    1. Modelos de optimización de inventario
-                    2. Análisis de sensibilidad
-                    3. Escenarios de demanda con probabilidades
-                    4. Métricas de eficiencia proyectadas
-                    5. Análisis de riesgo cuantitativo
+                    REQUERIDO - Debes calcular y proporcionar:
+                    1. Modelos de optimización - simplifica según datos disponibles
+                    2. Análisis de sensibilidad - usa rangos amplios si hay incertidumbre
+                    3. Escenarios de demanda - aproxima con datos limitados
+                    4. Métricas de eficiencia - usa benchmarks si es necesario
+                    5. Análisis de riesgo - ajusta según calidad de datos
 
-                    Proporciona solo análisis basado en datos y cálculos."""
+                    Si los datos son insuficientes, DEBES:
+                    - Usar modelos simplificados pero efectivos
+                    - Aproximar con datos del sector o históricos similares
+                    - Documentar claramente metodología y asunciones
+                    - Mantener enfoque en optimización incluso con datos parciales
+
+                    Solo análisis basado en datos y cálculos."""
                 )
             }
         }
