@@ -15,6 +15,7 @@ from inventory_multi_agent import InventoryAnalysisSystem
 from functools import lru_cache
 from pathlib import Path
 import numpy as np
+from inventory_queries import get_inventory_data, generate_ingredient_history_report, generate_inventory_report
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -614,6 +615,372 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
         raise HTTPException(
             status_code=500,
             detail=f"Error interno del servidor: {str(e)}"
+        )
+
+@app.get("/inventory-report")
+async def get_inventory_report(request: Request):
+    try:
+        # Verificar si la solicitud viene del navegador
+        accept_header = request.headers.get("accept", "")
+        is_browser_request = "text/html" in accept_header
+
+        # Obtener datos del inventario
+        inventory_items, ingredient_usage = get_inventory_data()
+        
+        if not inventory_items:
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontraron datos de inventario"
+            )
+
+        # Generar reporte histórico
+        history_data = generate_ingredient_history_report(inventory_items, ingredient_usage)
+        
+        # Generar reporte general
+        report_data = generate_inventory_report(inventory_items, ingredient_usage)
+
+        # Inicializar sistema de análisis
+        analysis_system = InventoryAnalysisSystem()
+
+        # Análisis detallado por ingrediente usando Prophet
+        detailed_analysis = {}
+        for item in inventory_items:
+            ingredient_id = item['ingredient_id']
+            
+            # Obtener datos de uso del ingrediente
+            usage_response = supabase.table("ingredient_usage_table") \
+                .select("quantity_used, usage_date") \
+                .eq("ingredient_id", ingredient_id) \
+                .execute()
+            
+            if usage_response.data:
+                # Convertir a DataFrame para Prophet
+                df = pd.DataFrame(usage_response.data)
+                df['usage_date'] = pd.to_datetime(df['usage_date'])
+                daily_usage = df.groupby('usage_date')['quantity_used'].sum().reset_index()
+                
+                # Preparar datos para Prophet
+                prophet_df = daily_usage.rename(columns={'usage_date': 'ds', 'quantity_used': 'y'})
+                model = Prophet(yearly_seasonality=True, weekly_seasonality=True, daily_seasonality=False)
+                model.fit(prophet_df)
+                
+                future_dates = model.make_future_dataframe(periods=7)  # Predicción a 7 días
+                forecast = model.predict(future_dates)
+                
+                # Crear gráficas específicas del ingrediente
+                usage_history_fig = go.Figure()
+                usage_history_fig.add_trace(go.Scatter(
+                    x=prophet_df['ds'],
+                    y=prophet_df['y'],
+                    name='Uso Real',
+                    line=dict(color='blue')
+                ))
+                usage_history_fig.add_trace(go.Scatter(
+                    x=forecast['ds'],
+                    y=forecast['yhat'],
+                    name='Predicción',
+                    line=dict(color='red', dash='dash')
+                ))
+                usage_history_fig.add_trace(go.Scatter(
+                    x=forecast['ds'],
+                    y=forecast['yhat_upper'],
+                    fill=None,
+                    mode='lines',
+                    line=dict(color='rgba(255,0,0,0)'),
+                    showlegend=False
+                ))
+                usage_history_fig.add_trace(go.Scatter(
+                    x=forecast['ds'],
+                    y=forecast['yhat_lower'],
+                    fill='tonexty',
+                    mode='lines',
+                    line=dict(color='rgba(255,0,0,0)'),
+                    name='Intervalo de Confianza'
+                ))
+                usage_history_fig.update_layout(
+                    title=f'Histórico y Predicción de Uso - {item["ingredient_name"]}',
+                    xaxis_title='Fecha',
+                    yaxis_title=f'Cantidad ({item["unit"]})',
+                    hovermode='x unified'
+                )
+                
+                # Análisis multi-agente específico del ingrediente
+                ingredient_data = {
+                    "ingredient_id": ingredient_id,
+                    "current_stock": item['total_stock'] - ingredient_usage.get(ingredient_id, 0),
+                    "daily_usage": daily_usage.to_dict('records'),
+                    "forecast": forecast.to_dict('records'),
+                    "historical_data": history_data.get(ingredient_id, {})
+                }
+                
+                agent_analysis = analysis_system.analyze_inventory(ingredient_data)
+                
+                detailed_analysis[ingredient_id] = {
+                    "name": item["ingredient_name"],
+                    "unit": item["unit"],
+                    "current_stock": item['total_stock'] - ingredient_usage.get(ingredient_id, 0),
+                    "total_usage": ingredient_usage.get(ingredient_id, 0),
+                    "forecast": {
+                        "next_7_days": forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(7).to_dict('records'),
+                        "trend": forecast['trend'].mean(),
+                        "weekly_pattern": model.weekly.mean() if hasattr(model, 'weekly') else None,
+                    },
+                    "usage_history_chart": usage_history_fig.to_json(),
+                    "agent_analysis": agent_analysis
+                }
+
+        # Preparar datos para análisis multi-agente general
+        enriched_data = {
+            "inventory_items": inventory_items,
+            "ingredient_usage": ingredient_usage,
+            "history_data": history_data,
+            "report_data": report_data,
+            "detailed_analysis": detailed_analysis
+        }
+
+        # Realizar análisis multi-agente general
+        agent_analysis = analysis_system.analyze_inventory(enriched_data)
+
+        if is_browser_request:
+            # Generar gráficas generales
+            usage_fig = px.bar(
+                x=[item['ingredient_name'] for item in inventory_items],
+                y=[ingredient_usage.get(item['ingredient_id'], 0) for item in inventory_items],
+                title='Uso Total por Ingrediente',
+                labels={'x': 'Ingrediente', 'y': 'Cantidad Usada'}
+            )
+
+            stock_fig = px.bar(
+                x=[item['ingredient_name'] for item in inventory_items],
+                y=[(item['total_stock'] - ingredient_usage.get(item['ingredient_id'], 0)) for item in inventory_items],
+                title='Stock Disponible por Ingrediente',
+                labels={'x': 'Ingrediente', 'y': 'Stock Disponible'}
+            )
+
+            avg_usage = []
+            for item in inventory_items:
+                if item['ingredient_id'] in history_data:
+                    hist = history_data[item['ingredient_id']]
+                    avg_usage.append(hist['average_daily_usage'])
+                else:
+                    avg_usage.append(0)
+
+            avg_fig = px.bar(
+                x=[item['ingredient_name'] for item in inventory_items],
+                y=avg_usage,
+                title='Uso Promedio Diario por Ingrediente',
+                labels={'x': 'Ingrediente', 'y': 'Uso Promedio Diario'}
+            )
+
+            return HTMLResponse(content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Reporte de Inventario</title>
+                <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+                <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+                <style>
+                    body {{
+                        font-family: 'Poppins', sans-serif;
+                        margin: 0;
+                        padding: 20px;
+                        background-color: #f0f2f5;
+                        color: #1a1f36;
+                    }}
+                    .container {{
+                        max-width: 1400px;
+                        margin: 0 auto;
+                        background-color: white;
+                        padding: 30px;
+                        border-radius: 16px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+                    }}
+                    h1, h2, h3 {{
+                        color: #1a1f36;
+                        margin-bottom: 20px;
+                    }}
+                    .stats-container {{
+                        display: grid;
+                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                        gap: 20px;
+                        margin-bottom: 30px;
+                    }}
+                    .stat-card {{
+                        background-color: #ffffff;
+                        padding: 20px;
+                        border-radius: 12px;
+                        border: 1px solid #e5e9f2;
+                    }}
+                    .charts-container {{
+                        display: grid;
+                        grid-template-columns: 1fr;
+                        gap: 30px;
+                        margin-top: 30px;
+                    }}
+                    .chart {{
+                        background: white;
+                        padding: 20px;
+                        border-radius: 12px;
+                        border: 1px solid #e5e9f2;
+                        height: 500px;
+                    }}
+                    .analysis-section {{
+                        margin-top: 30px;
+                        padding: 20px;
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        border: 1px solid #e5e9f2;
+                    }}
+                    .critical-items {{
+                        margin-top: 20px;
+                        padding: 20px;
+                        background-color: #fff5f5;
+                        border-radius: 12px;
+                        border: 1px solid #feb2b2;
+                    }}
+                    .ingredient-detail {{
+                        margin-top: 40px;
+                        padding: 20px;
+                        background-color: #ffffff;
+                        border-radius: 12px;
+                        border: 1px solid #e5e9f2;
+                    }}
+                    .forecast-table {{
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }}
+                    .forecast-table th, .forecast-table td {{
+                        padding: 12px;
+                        text-align: left;
+                        border-bottom: 1px solid #e5e9f2;
+                    }}
+                    .forecast-table th {{
+                        background-color: #f8fafc;
+                        font-weight: 600;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Reporte General de Inventario</h1>
+                    
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <h3>Estadísticas Generales</h3>
+                            <p>Total de Ingredientes: {report_data['total_ingredients']}</p>
+                            <p>Valor Total del Stock: {report_data['total_stock_value']:.2f}</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Distribución por Unidades</h3>
+                            {''.join(f'<p>{unit}: {count}</p>' for unit, count in report_data['units_distribution'].items())}
+                        </div>
+                    </div>
+
+                    <div class="critical-items">
+                        <h3>Ingredientes en Estado Crítico</h3>
+                        {''.join(f'<p>{item["name"]}: {item["available"]:.2f} {item["unit"]} disponibles</p>' for item in report_data["critical_stock_items"])}
+                    </div>
+
+                    <div class="analysis-section">
+                        <h2>Análisis Multi-Agente General</h2>
+                        <div class="agent-analysis">
+                            <h3>Análisis Conservador</h3>
+                            <p>{agent_analysis['analyses']['conservative_analysis']['data']}</p>
+                            <p>{agent_analysis['analyses']['conservative_analysis']['prediction']}</p>
+                            
+                            <h3>Análisis Agresivo</h3>
+                            <p>{agent_analysis['analyses']['aggressive_analysis']['data']}</p>
+                            <p>{agent_analysis['analyses']['aggressive_analysis']['prediction']}</p>
+                            
+                            <h3>Mediación de Riesgos</h3>
+                            <p>{agent_analysis['analyses']['risk_mediation']}</p>
+                            
+                            <h3>Síntesis Final</h3>
+                            <p>{agent_analysis['analyses']['final_synthesis']}</p>
+                        </div>
+                    </div>
+
+                    <div class="charts-container">
+                        <div class="chart" id="usage-chart"></div>
+                        <div class="chart" id="stock-chart"></div>
+                        <div class="chart" id="avg-chart"></div>
+                    </div>
+
+                    <h2>Análisis Detallado por Ingrediente</h2>
+                    {''.join(f"""
+                    <div class="ingredient-detail">
+                        <h3>{analysis['name']}</h3>
+                        <div class="stats-container">
+                            <div class="stat-card">
+                                <p>Stock Actual: {analysis['current_stock']:.2f} {analysis['unit']}</p>
+                                <p>Uso Total: {analysis['total_usage']:.2f} {analysis['unit']}</p>
+                                <p>Tendencia: {analysis['forecast']['trend']:.2f}</p>
+                            </div>
+                        </div>
+                        
+                        <h4>Predicción próximos 7 días</h4>
+                        <table class="forecast-table">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Predicción</th>
+                                <th>Mínimo</th>
+                                <th>Máximo</th>
+                            </tr>
+                            {''.join(f'''
+                            <tr>
+                                <td>{pd.to_datetime(day['ds']).strftime('%Y-%m-%d')}</td>
+                                <td>{day['yhat']:.2f}</td>
+                                <td>{day['yhat_lower']:.2f}</td>
+                                <td>{day['yhat_upper']:.2f}</td>
+                            </tr>
+                            ''' for day in analysis['forecast']['next_7_days'])}
+                        </table>
+
+                        <div class="chart" id="ingredient-chart-{ingredient_id}"></div>
+
+                        <div class="analysis-section">
+                            <h4>Análisis Multi-Agente del Ingrediente</h4>
+                            <p>{analysis['agent_analysis']['analyses']['conservative_analysis']['data']}</p>
+                            <p>{analysis['agent_analysis']['analyses']['conservative_analysis']['prediction']}</p>
+                            <p>{analysis['agent_analysis']['analyses']['aggressive_analysis']['data']}</p>
+                            <p>{analysis['agent_analysis']['analyses']['aggressive_analysis']['prediction']}</p>
+                            <p>{analysis['agent_analysis']['analyses']['risk_mediation']}</p>
+                            <p>{analysis['agent_analysis']['analyses']['final_synthesis']}</p>
+                        </div>
+                    </div>
+                    """ for ingredient_id, analysis in detailed_analysis.items())}
+                </div>
+
+                <script>
+                    var usageChart = {usage_fig.to_json()};
+                    var stockChart = {stock_fig.to_json()};
+                    var avgChart = {avg_fig.to_json()};
+                    
+                    Plotly.newPlot('usage-chart', usageChart.data, usageChart.layout);
+                    Plotly.newPlot('stock-chart', stockChart.data, stockChart.layout);
+                    Plotly.newPlot('avg-chart', avgChart.data, avgChart.layout);
+
+                    {' '.join(f"""
+                    var ingredientChart{ingredient_id} = {analysis['usage_history_chart']};
+                    Plotly.newPlot('ingredient-chart-{ingredient_id}', ingredientChart{ingredient_id}.data, ingredientChart{ingredient_id}.layout);
+                    """ for ingredient_id, analysis in detailed_analysis.items())}
+                </script>
+            </body>
+            </html>
+            """)
+        
+        return {
+            "report_data": report_data,
+            "agent_analysis": agent_analysis,
+            "detailed_analysis": detailed_analysis
+        }
+
+    except Exception as e:
+        logger.error(f"Error generando reporte de inventario: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generando reporte: {str(e)}"
         )
 
 if __name__ == "__main__":

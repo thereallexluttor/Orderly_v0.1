@@ -113,17 +113,38 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.white,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(7),
           side: BorderSide(color: Colors.grey[200]!),
         ),
-        onPressed: () {
-          // TODO: Implementar añadir nuevo ingrediente
+        onPressed: () async {
+          final url = Uri.parse('http://localhost:8000/inventory-report');
+          if (await canLaunchUrl(url)) {
+            await launchUrl(url);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No se pudo abrir el reporte'),
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(7),
+                  side: BorderSide(color: Colors.red[200]!),
+                ),
+                behavior: SnackBarBehavior.floating,
+                margin: EdgeInsets.all(8),
+                elevation: 0,
+              ),
+            );
+          }
         },
-        child: Icon(Icons.add, color: Colors.grey[800]),
+        icon: Icon(Icons.assessment, color: Colors.grey[800]),
+        label: Text(
+          'Ver Reporte de Inventario',
+          style: TextStyle(color: Colors.grey[800]),
+        ),
       ),
     );
   }
