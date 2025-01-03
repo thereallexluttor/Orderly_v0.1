@@ -5,6 +5,8 @@ from typing import Dict, Any
 import json
 from datetime import datetime
 import logging
+from phi.model.deepseek import DeepSeekChat
+from phi.model.google import Gemini
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -82,7 +84,9 @@ class InventoryAnalysisSystem:
             "conservative_data": Agent(
                 name="ConservativeDataAnalyst",
                 role="Analista de datos conservador del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como parte integral del sistema de control de inventario, analizo datos con enfoque 
                     en la estabilidad y seguridad del inventario. Mi objetivo es asegurar la transparencia 
@@ -100,7 +104,9 @@ class InventoryAnalysisSystem:
             "conservative_predictor": Agent(
                 name="ConservativePredictor",
                 role="Predictor conservador del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como componente del sistema de control de inventario, genero predicciones cautelosas 
                     que priorizan la seguridad y continuidad del suministro. Mi enfoque busca mantener 
@@ -120,7 +126,9 @@ class InventoryAnalysisSystem:
             "aggressive_data": Agent(
                 name="AggressiveDataAnalyst",
                 role="Analista de datos agresivo del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como parte del sistema de control de inventario, optimizo la eficiencia y reducción 
                     de costos mientras mantengo la transparencia y adaptabilidad del sistema. Mi enfoque 
@@ -138,7 +146,9 @@ class InventoryAnalysisSystem:
             "aggressive_predictor": Agent(
                 name="AggressivePredictor",
                 role="Predictor agresivo del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como elemento del sistema de control de inventario, genero predicciones optimizadas 
                     que buscan máxima eficiencia mientras mantengo la integridad y adaptabilidad del 
@@ -158,7 +168,9 @@ class InventoryAnalysisSystem:
             "risk_mediator": Agent(
                 name="RiskMediator",
                 role="Mediador de riesgos del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como coordinador dentro del sistema de control de inventario, equilibro la seguridad 
                     y eficiencia, asegurando que las decisiones apoyen la transparencia y adaptabilidad 
@@ -178,7 +190,9 @@ class InventoryAnalysisSystem:
             "synthesis": Agent(
                 name="SynthesisAgent",
                 role="Agente de síntesis del sistema de control de inventario",
-                model=Ollama(id="llama3.2:3b"),
+                ##model=Ollama(id="llama3.2:3b"),
+                ##model=DeepSeekChat(id="deepseek-chat"),
+                model=Gemini(id="gemini-1.5-flash"),
                 description=dedent("""
                     Como integrador final del sistema de control de inventario, sintetizo todos los 
                     análisis en recomendaciones accionables que aseguren la transparencia, seguridad 
@@ -242,7 +256,7 @@ class InventoryAnalysisSystem:
 
     def _enrich_inventory_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Enriquece los datos de inventario con métricas adicionales"""
-        return {
+        enriched = {
             **data,
             "analysis_timestamp": datetime.now().isoformat(),
             "metrics": {
@@ -251,54 +265,122 @@ class InventoryAnalysisSystem:
             }
         }
 
+        # Incluir datos de las gráficas si están disponibles
+        if "daily_usage_chart" in data:
+            enriched["daily_usage_chart"] = data["daily_usage_chart"]
+        if "weekly_usage_chart" in data:
+            enriched["weekly_usage_chart"] = data["weekly_usage_chart"]
+        if "prediction_chart" in data:
+            enriched["prediction_chart"] = data["prediction_chart"]
+
+        return enriched
+
     def _perform_parallel_analysis(self, data: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """Realiza análisis paralelos con diferentes perspectivas"""
         def get_agent_response(agent, prompt):
-            """Helper function to get response from agent"""
             response = agent.run(prompt)
-            # Extraer el contenido del RunResponse
             response_text = response.content if hasattr(response, 'content') else str(response)
             return format_analysis_text(response_text)
 
+        # Extract all available data for analysis
+        daily_usage = data.get('daily_usage', [])
+        weekly_usage = data.get('weekly_usage', [])
+        forecast_data = data.get('forecast', [])
+        current_stock = data.get('current_stock', 0)
+        metrics = data.get('metrics', {})
+        analysis_timestamp = data.get('analysis_timestamp')
+        
+        # Get the detailed usage data from the graphs
+        daily_usage_chart = data.get('daily_usage_chart', {})
+        weekly_usage_chart = data.get('weekly_usage_chart', {})
+        prediction_chart = data.get('prediction_chart', {})
+        
+        # Format data for agents
+        data_context = {
+            "stock_info": {
+                "current_stock": current_stock,
+                "analysis_timestamp": analysis_timestamp,
+                "metrics": metrics
+            },
+            "usage_patterns": {
+                "daily": daily_usage,
+                "weekly": weekly_usage,
+                "forecast": forecast_data
+            },
+            "detailed_analysis": {
+                "daily_chart": daily_usage_chart,
+                "weekly_chart": weekly_usage_chart,
+                "predictions": prediction_chart
+            }
+        }
+        
         return {
             "conservative": {
                 "data": get_agent_response(
                     self.agents["conservative_data"],
-                    f"""Analiza estos datos desde una perspectiva conservadora:
-                    ID: {data['ingredient_id']}
-                    Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Proporciona un análisis detallado priorizando la seguridad del inventario."""
+                    f"""Analiza cuantitativamente estos datos de inventario:
+
+                    Datos Completos del Ingrediente:
+                    {json.dumps(data_context, indent=2)}
+
+                    Realiza:
+                    1. Análisis estadístico del uso histórico (media, mediana, desviación estándar)
+                    2. Cálculo de tendencias y patrones estacionales
+                    3. Identificación de valores atípicos y su impacto
+                    4. Correlación entre variables
+                    5. Intervalos de confianza para las predicciones
+
+                    Enfócate en análisis numérico y estadístico, NO en recomendaciones generales."""
                 ),
                 "prediction": get_agent_response(
                     self.agents["conservative_predictor"],
-                    f"""Realiza predicciones conservadoras para:
-                    ID: {data['ingredient_id']}
-                    Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Enfócate en mantener niveles seguros de inventario."""
+                    f"""Genera predicciones basadas en análisis cuantitativo:
+
+                    Datos Completos del Ingrediente:
+                    {json.dumps(data_context, indent=2)}
+
+                    Calcula:
+                    1. Proyecciones con intervalos de confianza del 95%
+                    2. Probabilidad de desabastecimiento
+                    3. Análisis de series temporales (tendencia, estacionalidad, ciclos)
+                    4. Estimación de error en las predicciones (MAPE, MAE, RMSE)
+                    5. Pruebas estadísticas de significancia
+
+                    Proporciona solo análisis numérico y estadístico."""
                 )
             },
             "aggressive": {
                 "data": get_agent_response(
                     self.agents["aggressive_data"],
-                    f"""Analiza estos datos buscando eficiencia máxima:
-                    ID: {data['ingredient_id']}
-                    Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Identifica oportunidades de optimización."""
+                    f"""Realiza un análisis cuantitativo de eficiencia:
+
+                    Datos Completos del Ingrediente:
+                    {json.dumps(data_context, indent=2)}
+
+                    Calcula:
+                    1. Ratios de rotación de inventario
+                    2. Análisis de costos de almacenamiento
+                    3. Optimización de puntos de reorden
+                    4. Eficiencia del uso de espacio
+                    5. Análisis de varianza en el uso
+
+                    Enfócate en métricas y cálculos, NO en recomendaciones cualitativas."""
                 ),
                 "prediction": get_agent_response(
                     self.agents["aggressive_predictor"],
-                    f"""Realiza predicciones optimizadas para:
-                    ID: {data['ingredient_id']}
-                    Stock Actual: {data['current_stock']}
-                    Métricas: {json.dumps(data['metrics'], indent=2)}
-                    
-                    Busca maximizar la eficiencia del inventario."""
+                    f"""Genera predicciones optimizadas basadas en datos:
+
+                    Datos Completos del Ingrediente:
+                    {json.dumps(data_context, indent=2)}
+
+                    Calcula:
+                    1. Modelos de optimización de inventario
+                    2. Análisis de sensibilidad
+                    3. Escenarios de demanda con probabilidades
+                    4. Métricas de eficiencia proyectadas
+                    5. Análisis de riesgo cuantitativo
+
+                    Proporciona solo análisis basado en datos y cálculos."""
                 )
             }
         }

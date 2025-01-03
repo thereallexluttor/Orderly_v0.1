@@ -14,6 +14,7 @@ import logging
 from inventory_multi_agent import InventoryAnalysisSystem
 from functools import lru_cache
 from pathlib import Path
+import numpy as np
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -40,12 +41,12 @@ inventory_system = InventoryAnalysisSystem()
 
 # Add caching to prevent duplicate analysis
 @lru_cache(maxsize=128)
-def get_cached_agent_analysis(ingredient_id: int, current_stock: float, cache_key: str) -> dict:
+def get_cached_agent_analysis(ingredient_id: int, current_stock: float, cache_key: str, data: str) -> dict:
     """Cache the agent analysis results for 5 minutes"""
     return inventory_system.analyze_inventory({
         "ingredient_id": ingredient_id,
         "current_stock": current_stock,
-        # Include other data needed for analysis
+        "daily_usage": data
     })
 
 def ensure_daily_directory() -> Path:
@@ -58,6 +59,20 @@ def ensure_daily_directory() -> Path:
     daily_dir.mkdir(parents=True, exist_ok=True)
     
     return daily_dir
+
+def convert_to_serializable(obj):
+    """Convierte objetos NumPy a tipos nativos de Python"""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, pd.DataFrame):
+        return obj.to_dict('records')
+    elif isinstance(obj, pd.Series):
+        return obj.to_dict()
+    return obj
 
 @app.get("/ingredient-usage/{ingredient_id}")
 async def get_ingredient_usage(ingredient_id: int, current_stock: float, request: Request):
@@ -86,7 +101,11 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
         df = pd.DataFrame(usage_response.data)
         
         # Validar y convertir fechas
-        df['usage_date'] = pd.to_datetime(df['usage_date'], errors='coerce')
+        if not pd.api.types.is_datetime64_any_dtype(df['usage_date']):
+            logger.warning("usage_date no está en formato datetime, intentando convertir...")
+            df['usage_date'] = pd.to_datetime(df['usage_date'], errors='coerce')
+            if df['usage_date'].isna().any():
+                logger.error("Algunas fechas no pudieron ser convertidas")
         df = df.dropna(subset=['usage_date'])  # Eliminar filas con fechas inválidas
         
         if df.empty:
@@ -123,6 +142,12 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
 
         # Calcular días estimados de stock restante
         days_remaining = float('inf') if predicted_daily_usage == 0 else current_stock / predicted_daily_usage
+
+        # Ahora que hemos hecho todos los cálculos, convertimos las fechas a formato ISO
+        daily_usage['usage_date'] = daily_usage['usage_date'].dt.strftime('%Y-%m-%d')
+        df['usage_date'] = df['usage_date'].dt.strftime('%Y-%m-%d')
+        forecast['ds'] = forecast['ds'].dt.strftime('%Y-%m-%d')
+        future_dates['ds'] = future_dates['ds'].dt.strftime('%Y-%m-%d')
 
         restock_status = {
             'predicted_daily_usage': round(predicted_daily_usage, 2),
@@ -166,6 +191,7 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                       labels={'usage_date': 'Fecha', 'quantity_used': 'Cantidad Usada'})
         
         # Gráfico de uso por semana (pie)
+        df['usage_date'] = pd.to_datetime(df['usage_date'])  # Convertir explícitamente a datetime
         df['week'] = df['usage_date'].dt.strftime('%Y-%U')
         weekly_usage = df.groupby('week')['quantity_used'].sum()
         
@@ -227,7 +253,24 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
             cache_key = f"{cache_time.isoformat()}"
 
             # Use cached agent analysis instead of direct call
-            agent_analysis = get_cached_agent_analysis(ingredient_id, current_stock, cache_key)
+            agent_data = {
+                "ingredient_id": ingredient_id,
+                "current_stock": float(current_stock),  # Asegurar que sea float nativo
+                "daily_usage": convert_to_serializable(daily_usage),
+                "weekly_usage": convert_to_serializable(weekly_usage),
+                "forecast": convert_to_serializable(forecast),
+                "daily_usage_chart": json.loads(fig1.to_json()),
+                "weekly_usage_chart": json.loads(fig2.to_json()),
+                "prediction_chart": json.loads(fig3.to_json())
+            }
+
+            # Use cached_agent_analysis with the complete data
+            agent_analysis = get_cached_agent_analysis(
+                ingredient_id, 
+                current_stock,
+                cache_key,
+                json.dumps(agent_data)
+            )
             stats['agent_analysis'] = agent_analysis
 
         # Prepare the analysis data
@@ -399,8 +442,8 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                         border: 1px solid #e5e9f2;
                     }}
                     .agent-cards {{
-                        display: grid;
-                        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                        display: flex;
+                        flex-direction: column;
                         gap: 20px;
                         margin-top: 20px;
                     }}
@@ -409,6 +452,8 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                         padding: 20px;
                         border-radius: 8px;
                         border: 1px solid #e5e9f2;
+                        opacity: 0;
+                        animation: fadeIn 0.5s ease forwards;
                     }}
                     .agent-card h3 {{
                         color: #2d3748;
@@ -418,29 +463,33 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                         border-bottom: 2px solid #e5e9f2;
                         padding-bottom: 8px;
                     }}
-                    .agent-card p {{
-                        color: #4a5568;
+                    .typing-animation {{
+                        overflow: hidden;
+                        border-right: 2px solid #2d3748;
+                        white-space: pre-wrap;
                         margin: 0;
-                        font-size: 0.95em;
-                        line-height: 1.6;
+                        letter-spacing: 0.15em;
+                        animation: typing 3.5s steps(40, end),
+                                 blink-caret 0.75s step-end infinite;
                     }}
-                    .agent-card strong {{
-                        color: #2d3748;
-                        font-weight: 600;
+                    @keyframes typing {{
+                        from {{ max-height: 0; }}
+                        to {{ max-height: 1000px; }}
                     }}
-                    .agent-card ul, .agent-card ol {{
-                        margin: 10px 0;
-                        padding-left: 20px;
+                    @keyframes blink-caret {{
+                        from, to {{ border-color: transparent }}
+                        50% {{ border-color: #2d3748; }}
                     }}
-                    .agent-card li {{
-                        margin: 5px 0;
-                        color: #4a5568;
+                    @keyframes fadeIn {{
+                        from {{ opacity: 0; transform: translateY(20px); }}
+                        to {{ opacity: 1; transform: translateY(0); }}
                     }}
-                    .agent-card br {{
-                        display: block;
-                        margin: 8px 0;
-                        content: "";
-                    }}
+                    .agent-card:nth-child(1) {{ animation-delay: 0.2s; }}
+                    .agent-card:nth-child(2) {{ animation-delay: 0.4s; }}
+                    .agent-card:nth-child(3) {{ animation-delay: 0.6s; }}
+                    .agent-card:nth-child(4) {{ animation-delay: 0.8s; }}
+                    .agent-card:nth-child(5) {{ animation-delay: 1.0s; }}
+                    .agent-card:nth-child(6) {{ animation-delay: 1.2s; }}
                 </style>
             </head>
             <body>
@@ -475,33 +524,43 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float, request
                     </div>
 
                     <div class="agent-analysis-container">
-                        <h2>Análisis Multi-Agente AI</h2>
+                        <h2>Análisis Cuantitativo Multi-Agente</h2>
                         <div class="agent-cards">
-                            <div class="agent-card conservative">
-                                <h3>Perspectiva Conservadora</h3>
-                                <div class="sub-analysis">
-                                    <h4>Análisis de Datos</h4>
-                                    <p>{agent_analysis['analyses']['conservative_analysis']['data']}</p>
-                                    <h4>Predicciones</h4>
-                                    <p>{agent_analysis['analyses']['conservative_analysis']['prediction']}</p>
+                            <div class="agent-card">
+                                <h3>Análisis Conservador de Datos</h3>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['conservative_analysis']['data']}
                                 </div>
                             </div>
-                            <div class="agent-card aggressive">
-                                <h3>Perspectiva Agresiva</h3>
-                                <div class="sub-analysis">
-                                    <h4>Análisis de Datos</h4>
-                                    <p>{agent_analysis['analyses']['aggressive_analysis']['data']}</p>
-                                    <h4>Predicciones</h4>
-                                    <p>{agent_analysis['analyses']['aggressive_analysis']['prediction']}</p>
+                            <div class="agent-card">
+                                <h3>Predicciones Conservadoras</h3>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['conservative_analysis']['prediction']}
                                 </div>
                             </div>
-                            <div class="agent-card mediation">
+                            <div class="agent-card">
+                                <h3>Análisis Agresivo de Datos</h3>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['aggressive_analysis']['data']}
+                                </div>
+                            </div>
+                            <div class="agent-card">
+                                <h3>Predicciones Agresivas</h3>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['aggressive_analysis']['prediction']}
+                                </div>
+                            </div>
+                            <div class="agent-card">
                                 <h3>Mediación de Riesgos</h3>
-                                <p>{agent_analysis['analyses']['risk_mediation']}</p>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['risk_mediation']}
+                                </div>
                             </div>
-                            <div class="agent-card synthesis">
-                                <h3>Síntesis Final</h3>
-                                <p>{agent_analysis['analyses']['final_synthesis']}</p>
+                            <div class="agent-card">
+                                <h3>Síntesis Cuantitativa</h3>
+                                <div class="typing-animation">
+                                    {agent_analysis['analyses']['final_synthesis']}
+                                </div>
                             </div>
                         </div>
                     </div>
