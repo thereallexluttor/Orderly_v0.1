@@ -18,6 +18,7 @@ from inventory_queries import (
     generate_inventory_report,
     get_detailed_ingredient_data
 )
+from inventory_multi_agent import InventoryAnalysisSystem
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -40,7 +41,7 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-
+inventory_ai = InventoryAnalysisSystem()
 
 def convert_to_serializable(obj):
     """Convierte objetos NumPy a tipos nativos de Python"""
@@ -288,7 +289,22 @@ def generate_dashboard_html(ingredients_data):
                 '#2ecc71'  # green
             )
 
-            # Create ingredient section
+            # Add AI Analysis
+            ai_context = {
+                "ingredient_name": data['ingredient_name'],
+                "current_stock": data['current_stock'],
+                "total_stock": data['total_stock'],
+                "unit": data['unit'],
+                "safe_factor": data['safe_factor'],
+                "history": [{"created_at": date, "quantity": usage, "type": "usage"} 
+                           for date, usage in data['usage_history'].items()],
+                "recipe_usage": [],  # You can add recipe data if available
+                "suppliers": []      # You can add supplier data if available
+            }
+            
+            ai_insights = inventory_ai.analyze_inventory(ai_context)
+            
+            # Create ingredient section with AI insights
             section_html = f"""
             <div class="ingredient-section">
                 <div class="ingredient-header">
@@ -342,6 +358,24 @@ def generate_dashboard_html(ingredients_data):
                         {pred_fig.to_html(full_html=False)}
                     </div>
                 </div>
+
+                <div class="ai-insights">
+                    <h3>Análisis de IA</h3>
+                    <div class="insights-grid">
+                        <div class="insight-card analysis">
+                            <h4>Análisis Detallado</h4>
+                            <div class="insight-content">
+                                {ai_insights['analysis']}
+                            </div>
+                        </div>
+                        <div class="insight-card recommendations">
+                            <h4>Recomendaciones Estratégicas</h4>
+                            <div class="insight-content">
+                                {ai_insights['recommendations']}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             """
             ingredient_sections.append(section_html)
@@ -350,7 +384,60 @@ def generate_dashboard_html(ingredients_data):
             logger.warning(f"Could not generate visualizations for {data['ingredient_name']}: {str(e)}")
             continue
 
-    # Combine all sections into a dashboard
+    # Add these styles to the CSS section in the HTML
+    additional_styles = """
+        .ai-insights {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+            margin-top: 16px;
+        }
+        
+        .insight-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .insight-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .insight-card h4 {
+            color: #2c3e50;
+            margin: 0 0 16px 0;
+            font-size: 1.1em;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 8px;
+            display: inline-block;
+        }
+        
+        .insight-content {
+            color: #34495e;
+            font-size: 0.95em;
+            line-height: 1.6;
+            white-space: pre-line;
+        }
+        
+        .analysis h4 {
+            border-color: #3498db;
+        }
+        
+        .recommendations h4 {
+            border-color: #2ecc71;
+        }
+    """
+
+    # Add the additional_styles to your existing dashboard HTML template
     dashboard_html = f"""
     <!DOCTYPE html>
     <html>
@@ -491,6 +578,7 @@ def generate_dashboard_html(ingredients_data):
                 font-size: 0.8em;
                 font-weight: bold;
             }}
+            {additional_styles}
         </style>
     </head>
     <body>
