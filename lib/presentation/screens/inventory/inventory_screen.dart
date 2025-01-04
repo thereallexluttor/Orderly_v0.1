@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:url_launcher/url_launcher.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -91,6 +92,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     });
 
     return items;
+  }
+
+  Future<void> _launchURL(String urlString) async {
+    final Uri url = Uri.parse(urlString);
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      throw Exception('No se pudo abrir $urlString');
+    }
   }
 
   @override
@@ -496,7 +504,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ElevatedButton.icon(
           onPressed: () async {
             try {
-              // Mostrar indicador de carga
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -510,7 +517,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           children: const [
                             CircularProgressIndicator(),
                             SizedBox(height: 16),
-                            Text('Generando informe de inventario...')
+                            Text('Generando dashboard de inventario...')
                           ],
                         ),
                       ),
@@ -519,29 +526,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 },
               );
 
-              // Llamar a la API local de FastAPI
-              final response = await http.get(
+              // Primero generamos el reporte
+              final reportResponse = await http.get(
                 Uri.parse('http://localhost:8000/inventory-report'),
               );
+
+              if (reportResponse.statusCode != 200) {
+                throw Exception('Error al generar el reporte');
+              }
+
+              // Abrir el dashboard en el navegador
+              await _launchURL('http://localhost:8000/dashboard');
 
               // Cerrar el diálogo de carga
               Navigator.of(context).pop();
 
-              if (response.statusCode == 200) {
-                final data = json.decode(response.body);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(data['message']),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } else {
-                throw Exception(
-                    'Error al generar el informe: ${response.statusCode}');
-              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Dashboard abierto en el navegador'),
+                  backgroundColor: Colors.green,
+                ),
+              );
             } catch (error) {
               // Cerrar el diálogo de carga si hay error
-              Navigator.of(context).pop();
+              if (context.mounted) Navigator.of(context).pop();
 
               // Mostrar error
               ScaffoldMessenger.of(context).showSnackBar(
@@ -552,8 +560,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
               );
             }
           },
-          icon: const Text('👷‍♂️'),
-          label: const Text('Generar Informe IA'),
+          icon: const Icon(Icons.dashboard),
+          label: const Text('Ver Dashboard'),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
             foregroundColor: Colors.grey[800],

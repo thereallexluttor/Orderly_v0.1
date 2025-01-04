@@ -160,6 +160,207 @@ async def get_inventory_report(request: Request):
             detail=f"Error generando reporte: {str(e)}"
         )
 
+@app.get("/dashboard", response_class=HTMLResponse)
+async def get_dashboard():
+    try:
+        # Read the latest ingredients history file
+        today = datetime.now().strftime('%Y-%m-%d')
+        data_dir = Path(__file__).parent / 'inventory_data' / today
+        latest_file = sorted(data_dir.glob('ingredients_history_*.json'))[-1]
+        
+        with open(latest_file) as f:
+            ingredients_data = json.load(f)
+
+        # Generate dashboard HTML
+        dashboard_html = generate_dashboard_html(ingredients_data)
+        return dashboard_html
+
+    except Exception as e:
+        logger.error(f"Error generating dashboard: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating dashboard: {str(e)}"
+        )
+
+def generate_dashboard_html(ingredients_data):
+    ingredient_sections = []
+
+    for ingredient_id, data in ingredients_data.items():
+        try:
+            # Create usage history dataframe
+            df = pd.DataFrame(
+                [(date, usage) for date, usage in data['usage_history'].items()],
+                columns=['ds', 'y']
+            )
+            df['ds'] = pd.to_datetime(df['ds'])
+
+            # 1. Historical Usage Plot
+            usage_fig = px.line(df, x='ds', y='y', 
+                              title=f"Uso Histórico",
+                              labels={'ds': 'Fecha', 'y': f"Uso ({data['unit']})"})
+            usage_fig.update_layout(showlegend=False)
+            
+            # 2. Generate Prophet predictions
+            m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
+            m.fit(df)
+            future = m.make_future_dataframe(periods=30)
+            forecast = m.predict(future)
+            
+            pred_fig = go.Figure()
+            pred_fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], name='Histórico'))
+            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], 
+                                        name='Predicción'))
+            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_upper'], 
+                                        fill=None, mode='lines', line_color='rgba(0,100,80,0.2)', 
+                                        name='Límite Superior'))
+            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_lower'], 
+                                        fill='tonexty', mode='lines', line_color='rgba(0,100,80,0.2)', 
+                                        name='Límite Inferior'))
+            pred_fig.update_layout(
+                title="Pronóstico de Uso",
+                xaxis_title="Fecha",
+                yaxis_title=f"Uso ({data['unit']})"
+            )
+
+            # 3. Generate insights
+            last_30_days = df[df['ds'] > df['ds'].max() - timedelta(days=30)]
+            recent_trend = last_30_days['y'].mean() - df['y'].mean()
+            peak_usage = forecast[forecast['ds'] > datetime.now()]['yhat'].max()
+            
+            # Create ingredient section
+            section_html = f"""
+            <div class="ingredient-section">
+                <div class="ingredient-header">
+                    <h2>{data['ingredient_name']}</h2>
+                    <span class="ingredient-unit">Unidad: {data['unit']}</span>
+                </div>
+                
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <h3>Promedio Diario</h3>
+                        <p>{data['average_daily_usage']:.2f} {data['unit']}</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Uso Máximo</h3>
+                        <p>{data['max_daily_usage']:.2f} {data['unit']}</p>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Tendencia 30 días</h3>
+                        <p class="{'' if recent_trend > 0 else 'negative'}">
+                            {'↑' if recent_trend > 0 else '↓'} {abs(recent_trend):.2f} {data['unit']}
+                        </p>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Pico Previsto</h3>
+                        <p>{peak_usage:.2f} {data['unit']}</p>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        {usage_fig.to_html(full_html=False)}
+                    </div>
+                    <div class="chart-container">
+                        {pred_fig.to_html(full_html=False)}
+                    </div>
+                </div>
+            </div>
+            """
+            ingredient_sections.append(section_html)
+
+        except Exception as e:
+            logger.warning(f"Could not generate visualizations for {data['ingredient_name']}: {str(e)}")
+            continue
+
+    # Combine all sections into a dashboard
+    dashboard_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Dashboard de Análisis de Inventario</title>
+        <style>
+            body {{
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }}
+            .ingredient-section {{
+                background: white;
+                border-radius: 12px;
+                padding: 24px;
+                margin-bottom: 32px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            .ingredient-header {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 2px solid #f0f0f0;
+            }}
+            .ingredient-header h2 {{
+                margin: 0;
+                color: #2c3e50;
+            }}
+            .ingredient-unit {{
+                color: #7f8c8d;
+                font-size: 0.9em;
+            }}
+            .metrics-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 16px;
+                margin-bottom: 24px;
+            }}
+            .metric-card {{
+                background: #f8f9fa;
+                padding: 16px;
+                border-radius: 8px;
+                text-align: center;
+            }}
+            .metric-card h3 {{
+                margin: 0 0 8px 0;
+                color: #34495e;
+                font-size: 0.9em;
+            }}
+            .metric-card p {{
+                margin: 0;
+                font-size: 1.2em;
+                font-weight: bold;
+                color: #2c3e50;
+            }}
+            .metric-card p.negative {{
+                color: #e74c3c;
+            }}
+            .charts-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+                gap: 24px;
+            }}
+            .chart-container {{
+                background: white;
+                padding: 16px;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }}
+            h1 {{
+                color: #2c3e50;
+                margin-bottom: 32px;
+                text-align: center;
+            }}
+        </style>
+    </head>
+    <body>
+        <h1>Dashboard de Análisis de Inventario</h1>
+        {''.join(ingredient_sections)}
+    </body>
+    </html>
+    """
+    
+    return dashboard_html
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
