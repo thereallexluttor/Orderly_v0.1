@@ -244,6 +244,8 @@ def generate_ingredient_history_report(items, ingredient_usage):
                 ingredient_id = item['ingredient_id']
                 ingredient_name = item['ingredient_name']
                 unit = item['unit']
+                total_stock = item['total_stock']
+                safe_factor = item['safe_factor']
                 
                 print(f"\nProcesando ingrediente: {ingredient_name} (ID: {ingredient_id})")
                 
@@ -260,6 +262,8 @@ def generate_ingredient_history_report(items, ingredient_usage):
                         'ingredient_name': ingredient_name,
                         'ingredient_id': ingredient_id,
                         'unit': unit,
+                        'total_stock': float(total_stock),
+                        'safe_factor': float(safe_factor),
                         'usage_history': {
                             str(date.date()): float(quantity)
                             for date, quantity in daily_usage.items()
@@ -272,9 +276,25 @@ def generate_ingredient_history_report(items, ingredient_usage):
                         'last_usage_date': str(daily_usage.index.max().date())
                     }
                     
+                    # Calcular stock actual y estado
+                    current_stock = total_stock - float(daily_usage.sum())
+                    safe_threshold = total_stock * (safe_factor / 100)
+                    
+                    # Agregar información de estado del stock
+                    ingredient_history['current_stock'] = float(current_stock)
+                    ingredient_history['safe_threshold'] = float(safe_threshold)
+                    ingredient_history['stock_status'] = (
+                        'critical' if current_stock < safe_threshold
+                        else 'warning' if current_stock < (total_stock * 0.3)
+                        else 'good'
+                    )
+                    
                     all_ingredients_history[ingredient_id] = ingredient_history
                     
                     print(f"✓ Historial procesado: {len(daily_usage)} días de uso registrados")
+                    print(f"  Stock actual: {current_stock:.2f} {unit}")
+                    print(f"  Límite seguro ({safe_factor}%): {safe_threshold:.2f} {unit}")
+                    print(f"  Estado: {ingredient_history['stock_status'].upper()}")
                 else:
                     print("✗ No se encontraron datos de uso")
                     
@@ -284,14 +304,12 @@ def generate_ingredient_history_report(items, ingredient_usage):
         
         # Guardar el historial en un archivo JSON
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        
-        # Obtener la ruta base del proyecto (donde está lib/)
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        
-        # Crear la ruta completa para el archivo
-        report_path = os.path.join(base_path, "lib", "backend", "inventory_data", datetime.now().strftime('%Y-%m-%d'))
+        report_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "lib", "backend", "inventory_data",
+            datetime.now().strftime('%Y-%m-%d')
+        )
         os.makedirs(report_path, exist_ok=True)
-        
         report_file = os.path.join(report_path, f"ingredients_history_{timestamp}.json")
         
         print(f"\nGuardando historial en: {report_file}")

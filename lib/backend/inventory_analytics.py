@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 from inventory_queries import (
     get_inventory_data, 
+    get_ingredient_usage,
     generate_ingredient_history_report, 
     generate_inventory_report
 )
@@ -80,11 +81,20 @@ def convert_to_serializable(obj):
     return obj
 
 @app.get("/ingredient-usage/{ingredient_id}")
-async def get_ingredient_usage(ingredient_id: int, current_stock: float):
+async def get_ingredient_usage_endpoint(ingredient_id: int, current_stock: float):
     try:
         logger.info(f"Obteniendo datos para ingredient_id: {ingredient_id}")
         
-        # Obtener datos del inventario
+        # Usar la función de queries directamente
+        usage_data = get_ingredient_usage(ingredient_id, current_stock)
+        
+        if not usage_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No se encontraron datos de uso para el ingrediente {ingredient_id}"
+            )
+            
+        # Obtener datos del inventario usando la función de queries
         inventory_items, ingredient_usage = get_inventory_data()
         
         # Buscar el ingrediente específico
@@ -94,15 +104,6 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float):
             raise HTTPException(
                 status_code=404,
                 detail=f"No se encontró el ingrediente con ID {ingredient_id}"
-            )
-
-        # Obtener el historial de uso
-        usage_data = get_ingredient_usage(ingredient_id, current_stock)
-        
-        if not usage_data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No se encontraron datos de uso para el ingrediente {ingredient_id}"
             )
 
         return {
@@ -123,11 +124,11 @@ async def get_ingredient_usage(ingredient_id: int, current_stock: float):
         )
 
 @app.get("/inventory-report")
-async def get_inventory_report(request: Request):
+async def get_inventory_report_endpoint(request: Request):
     try:
         logger.info("Iniciando generación de reporte de inventario...")
         
-        # Obtener datos del inventario usando las funciones de queries
+        # Usar las funciones de queries directamente
         inventory_items, ingredient_usage = get_inventory_data()
         
         if not inventory_items:
@@ -136,10 +137,10 @@ async def get_inventory_report(request: Request):
                 detail="No se encontraron datos de inventario"
             )
 
-        # Generar reporte histórico
+        # Generar reporte histórico usando la función de queries
         history_data = generate_ingredient_history_report(inventory_items, ingredient_usage)
         
-        # Generar reporte general
+        # Generar reporte general usando la función de queries
         report_data = generate_inventory_report(inventory_items, ingredient_usage)
 
         logger.info("Reporte generado exitosamente")
@@ -163,13 +164,23 @@ async def get_inventory_report(request: Request):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def get_dashboard():
     try:
-        # Read the latest ingredients history file
-        today = datetime.now().strftime('%Y-%m-%d')
-        data_dir = Path(__file__).parent / 'inventory_data' / today
-        latest_file = sorted(data_dir.glob('ingredients_history_*.json'))[-1]
+        # Obtener datos del inventario usando las funciones de queries
+        inventory_items, ingredient_usage = get_inventory_data()
         
-        with open(latest_file) as f:
-            ingredients_data = json.load(f)
+        if not inventory_items:
+            raise HTTPException(
+                status_code=404,
+                detail="No se encontraron datos de inventario"
+            )
+            
+        # Generar el historial usando la función de queries
+        ingredients_data = generate_ingredient_history_report(inventory_items, ingredient_usage)
+        
+        if not ingredients_data:
+            raise HTTPException(
+                status_code=500,
+                detail="Error generando el historial de ingredientes"
+            )
 
         # Generate dashboard HTML
         dashboard_html = generate_dashboard_html(ingredients_data)
@@ -227,32 +238,62 @@ def generate_dashboard_html(ingredients_data):
             recent_trend = last_30_days['y'].mean() - df['y'].mean()
             peak_usage = forecast[forecast['ds'] > datetime.now()]['yhat'].max()
             
+            # Calculate new metrics using total_stock and safe_factor
+            safe_threshold = data['total_stock'] * (data['safe_factor'] / 100)
+            current_stock = data['current_stock']
+            stock_percentage = (current_stock / data['total_stock']) * 100
+            days_until_empty = current_stock / data['average_daily_usage'] if data['average_daily_usage'] > 0 else float('inf')
+            
+            # Determine stock status color
+            status_color = (
+                '#e74c3c' if current_stock < safe_threshold else  # red
+                '#f1c40f' if current_stock < (data['total_stock'] * 0.3) else  # yellow
+                '#2ecc71'  # green
+            )
+
             # Create ingredient section
             section_html = f"""
             <div class="ingredient-section">
                 <div class="ingredient-header">
                     <h2>{data['ingredient_name']}</h2>
-                    <span class="ingredient-unit">Unidad: {data['unit']}</span>
+                    <div class="header-metrics">
+                        <span class="ingredient-unit">Unidad: {data['unit']}</span>
+                        <span class="stock-status" style="background-color: {status_color}">
+                            {data['stock_status'].upper()}
+                        </span>
+                    </div>
                 </div>
                 
                 <div class="metrics-grid">
                     <div class="metric-card">
+                        <h3>Stock Total</h3>
+                        <p>{data['total_stock']:.2f} {data['unit']}</p>
+                        <small>Factor de Seguridad: {data['safe_factor']}%</small>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Stock Actual</h3>
+                        <p>{current_stock:.2f} {data['unit']}</p>
+                        <small>{stock_percentage:.1f}% del total</small>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Límite Seguro</h3>
+                        <p>{safe_threshold:.2f} {data['unit']}</p>
+                        <small>Nivel mínimo recomendado</small>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Días Restantes</h3>
+                        <p>{min(days_until_empty, 999):.1f} días</p>
+                        <small>Al ritmo actual de uso</small>
+                    </div>
+                    <div class="metric-card">
                         <h3>Promedio Diario</h3>
                         <p>{data['average_daily_usage']:.2f} {data['unit']}</p>
+                        <small>Uso promedio por día</small>
                     </div>
                     <div class="metric-card">
                         <h3>Uso Máximo</h3>
                         <p>{data['max_daily_usage']:.2f} {data['unit']}</p>
-                    </div>
-                    <div class="metric-card">
-                        <h3>Tendencia 30 días</h3>
-                        <p class="{'' if recent_trend > 0 else 'negative'}">
-                            {'↑' if recent_trend > 0 else '↓'} {abs(recent_trend):.2f} {data['unit']}
-                        </p>
-                    </div>
-                    <div class="metric-card">
-                        <h3>Pico Previsto</h3>
-                        <p>{peak_usage:.2f} {data['unit']}</p>
+                        <small>Pico histórico diario</small>
                     </div>
                 </div>
 
@@ -310,7 +351,7 @@ def generate_dashboard_html(ingredients_data):
             }}
             .metrics-grid {{
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
                 gap: 16px;
                 margin-bottom: 24px;
             }}
@@ -319,6 +360,15 @@ def generate_dashboard_html(ingredients_data):
                 padding: 16px;
                 border-radius: 8px;
                 text-align: center;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 120px;
+            }}
+            .metric-card small {{
+                color: #7f8c8d;
+                font-size: 0.8em;
+                margin-top: 8px;
             }}
             .metric-card h3 {{
                 margin: 0 0 8px 0;
@@ -349,6 +399,19 @@ def generate_dashboard_html(ingredients_data):
                 color: #2c3e50;
                 margin-bottom: 32px;
                 text-align: center;
+            }}
+            .header-metrics {{
+                display: flex;
+                align-items: center;
+                gap: 16px;
+            }}
+            
+            .stock-status {{
+                padding: 4px 12px;
+                border-radius: 12px;
+                color: white;
+                font-size: 0.8em;
+                font-weight: bold;
             }}
         </style>
     </head>
