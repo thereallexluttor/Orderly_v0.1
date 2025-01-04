@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -487,6 +490,79 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 _searchQuery = value;
               });
             },
+          ),
+        ),
+        const SizedBox(width: 16),
+        ElevatedButton.icon(
+          onPressed: () async {
+            try {
+              // Mostrar indicador de carga
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return Center(
+                    child: Card(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Generando informe de inventario...')
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              );
+
+              // Llamar a la API local de FastAPI
+              final response = await http.get(
+                Uri.parse('http://localhost:8000/inventory-report'),
+              );
+
+              // Cerrar el diálogo de carga
+              Navigator.of(context).pop();
+
+              if (response.statusCode == 200) {
+                final data = json.decode(response.body);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(data['message']),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                throw Exception(
+                    'Error al generar el informe: ${response.statusCode}');
+              }
+            } catch (error) {
+              // Cerrar el diálogo de carga si hay error
+              Navigator.of(context).pop();
+
+              // Mostrar error
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error: ${error.toString()}'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          icon: const Text('👷‍♂️'),
+          label: const Text('Generar Informe IA'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.grey[800],
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(7),
+              side: BorderSide(color: Colors.grey[200]!),
+            ),
           ),
         ),
       ],
