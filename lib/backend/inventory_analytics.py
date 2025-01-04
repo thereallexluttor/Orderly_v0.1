@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import plotly.graph_objects as go
@@ -11,15 +11,12 @@ from dotenv import load_dotenv
 from prophet import Prophet
 import json
 import logging
-from inventory_multi_agent import InventoryAnalysisSystem
-from functools import lru_cache
-from pathlib import Path
-import numpy as np
 from inventory_queries import (
     get_inventory_data, 
     get_ingredient_usage,
     generate_ingredient_history_report, 
-    generate_inventory_report
+    generate_inventory_report,
+    get_detailed_ingredient_data
 )
 
 # Configurar logging
@@ -43,28 +40,7 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_ANON_KEY")
 supabase: Client = create_client(supabase_url, supabase_key)
 
-inventory_system = InventoryAnalysisSystem()
 
-# Add caching to prevent duplicate analysis
-@lru_cache(maxsize=128)
-def get_cached_agent_analysis(ingredient_id: int, current_stock: float, cache_key: str, data: str) -> dict:
-    """Cache the agent analysis results for 5 minutes"""
-    return inventory_system.analyze_inventory({
-        "ingredient_id": ingredient_id,
-        "current_stock": current_stock,
-        "daily_usage": data
-    })
-
-def ensure_daily_directory() -> Path:
-    """Create and return path to today's data directory"""
-    today = datetime.now().strftime('%Y-%m-%d')
-    base_dir = Path(__file__).parent / 'analytics_data'
-    daily_dir = base_dir / today
-    
-    # Create directories if they don't exist
-    daily_dir.mkdir(parents=True, exist_ok=True)
-    
-    return daily_dir
 
 def convert_to_serializable(obj):
     """Convierte objetos NumPy a tipos nativos de Python"""
@@ -85,25 +61,52 @@ async def get_ingredient_usage_endpoint(ingredient_id: int, current_stock: float
     try:
         logger.info(f"Obteniendo datos para ingredient_id: {ingredient_id}")
         
-        # Usar la función de queries directamente
-        usage_data = get_ingredient_usage(ingredient_id, current_stock)
+        # Obtener datos detallados que incluyen el historial de uso
+        detailed_data = await get_detailed_ingredient_data(ingredient_id)
         
-        if not usage_data:
-            raise HTTPException(
-                status_code=404,
-                detail=f"No se encontraron datos de uso para el ingrediente {ingredient_id}"
-            )
-            
-        # Obtener datos del inventario usando la función de queries
+        # Obtener datos del inventario
         inventory_items, ingredient_usage = get_inventory_data()
-        
-        # Buscar el ingrediente específico
         item = next((item for item in inventory_items if item['ingredient_id'] == ingredient_id), None)
         
         if not item:
             raise HTTPException(
                 status_code=404,
                 detail=f"No se encontró el ingrediente con ID {ingredient_id}"
+            )
+
+        # Obtener el historial de uso del formato correcto del JSON
+        usage_history = {}
+        if detailed_data and isinstance(detailed_data, dict):
+            ingredient_data = detailed_data.get(str(ingredient_id), {})
+            
+            # Actualizar el item con los campos exactos del JSON
+            item.update({
+                'ingredient_name': ingredient_data.get('ingredient_name'),
+                'ingredient_id': ingredient_data.get('ingredient_id'),
+                'unit': ingredient_data.get('unit'),
+                'total_stock': ingredient_data.get('total_stock'),
+                'safe_factor': ingredient_data.get('safe_factor'),
+                'usage_history': ingredient_data.get('usage_history', {}),
+                'total_usage': ingredient_data.get('total_usage'),
+                'average_daily_usage': ingredient_data.get('average_daily_usage'),
+                'max_daily_usage': ingredient_data.get('max_daily_usage'),
+                'days_with_usage': ingredient_data.get('days_with_usage'),
+                'first_usage_date': ingredient_data.get('first_usage_date'),
+                'last_usage_date': ingredient_data.get('last_usage_date'),
+                'current_stock': ingredient_data.get('current_stock'),
+                'safe_threshold': ingredient_data.get('safe_threshold'),
+                'stock_status': ingredient_data.get('stock_status')
+            })
+            
+        logger.info(f"Historial de uso encontrado para ingrediente {ingredient_id}: {len(item.get('usage_history', {}))} registros")
+        
+        # Obtener datos de uso
+        usage_data = get_ingredient_usage(ingredient_id, current_stock)
+        
+        if not usage_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No se encontraron datos de uso para el ingrediente {ingredient_id}"
             )
 
         return {
@@ -209,7 +212,14 @@ def generate_dashboard_html(ingredients_data):
             usage_fig = px.line(df, x='ds', y='y', 
                               title=f"Uso Histórico",
                               labels={'ds': 'Fecha', 'y': f"Uso ({data['unit']})"})
-            usage_fig.update_layout(showlegend=False)
+            usage_fig.update_layout(
+                showlegend=False,
+                transition_duration=1000,
+                transition={
+                    'duration': 1000,
+                    'easing': 'cubic-in-out'
+                }
+            )
             
             # 2. Generate Prophet predictions
             m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
@@ -218,19 +228,46 @@ def generate_dashboard_html(ingredients_data):
             forecast = m.predict(future)
             
             pred_fig = go.Figure()
-            pred_fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], name='Histórico'))
-            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], 
-                                        name='Predicción'))
-            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_upper'], 
-                                        fill=None, mode='lines', line_color='rgba(0,100,80,0.2)', 
-                                        name='Límite Superior'))
-            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat_lower'], 
-                                        fill='tonexty', mode='lines', line_color='rgba(0,100,80,0.2)', 
-                                        name='Límite Inferior'))
+            pred_fig.add_trace(go.Scatter(
+                x=df['ds'], 
+                y=df['y'], 
+                name='Histórico',
+                mode='lines',
+                line=dict(width=2)
+            ))
+            pred_fig.add_trace(go.Scatter(
+                x=forecast['ds'], 
+                y=forecast['yhat'], 
+                name='Predicción',
+                mode='lines',
+                line=dict(width=2)
+            ))
+            pred_fig.add_trace(go.Scatter(
+                x=forecast['ds'], 
+                y=forecast['yhat_upper'],
+                fill=None, 
+                mode='lines', 
+                line_color='rgba(0,100,80,0.2)',
+                name='Límite Superior'
+            ))
+            pred_fig.add_trace(go.Scatter(
+                x=forecast['ds'], 
+                y=forecast['yhat_lower'],
+                fill='tonexty', 
+                mode='lines', 
+                line_color='rgba(0,100,80,0.2)',
+                name='Límite Inferior'
+            ))
+            
             pred_fig.update_layout(
                 title="Pronóstico de Uso",
                 xaxis_title="Fecha",
-                yaxis_title=f"Uso ({data['unit']})"
+                yaxis_title=f"Uso ({data['unit']})",
+                transition_duration=1000,
+                transition={
+                    'duration': 1000,
+                    'easing': 'cubic-in-out'
+                }
             )
 
             # 3. Generate insights
@@ -319,6 +356,42 @@ def generate_dashboard_html(ingredients_data):
     <html>
     <head>
         <title>Dashboard de Análisis de Inventario</title>
+        <script>
+            // Configuración global de animaciones para Plotly
+            window.addEventListener('load', function() {{
+                const graphs = document.querySelectorAll('.js-plotly-plot');
+                graphs.forEach(graph => {{
+                    graph._context.responsive = true;
+                    graph._context.displayModeBar = false;
+                    
+                    // Animar al hacer hover
+                    graph.on('plotly_hover', function() {{
+                        graph.transition {{
+                            duration: 500,
+                            easing: 'cubic-in-out'
+                        }}
+                    }});
+                    
+                    // Animación inicial
+                    setTimeout(() => {{
+                        Plotly.animate(graph, {{
+                            data: graph.data,
+                            traces: [0],
+                            layout: {{}},
+                        }}, {{
+                            transition: {{
+                                duration: 1000,
+                                easing: 'cubic-in-out'
+                            }},
+                            frame: {{
+                                duration: 1000,
+                                redraw: true
+                            }}
+                        }});
+                    }}, 500);
+                }});
+            }});
+        </script>
         <style>
             body {{
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -394,6 +467,11 @@ def generate_dashboard_html(ingredients_data):
                 padding: 16px;
                 border-radius: 8px;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                transition: all 0.3s ease-in-out;
+            }}
+            .chart-container:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15);
             }}
             h1 {{
                 color: #2c3e50;

@@ -326,6 +326,37 @@ def generate_ingredient_history_report(items, ingredient_usage):
         print(f"Tipo de error: {type(e).__name__}")
         return None
 
+async def get_detailed_ingredient_data(ingredient_id: int) -> dict:
+    """Obtiene datos detallados de un ingrediente específico"""
+    try:
+        # Consulta para obtener el historial completo del ingrediente
+        history = await supabase.table('ingredient_history')\
+            .select('*')\
+            .eq('ingredient_id', ingredient_id)\
+            .order('created_at.desc')\
+            .execute()
+
+        # Consulta para obtener datos de uso en recetas
+        recipe_usage = await supabase.table('recipe_ingredients')\
+            .select('*,recipes(*)')\
+            .eq('ingredient_id', ingredient_id)\
+            .execute()
+
+        # Consulta para obtener datos de proveedores
+        suppliers = await supabase.table('ingredient_suppliers')\
+            .select('*')\
+            .eq('ingredient_id', ingredient_id)\
+            .execute()
+
+        return {
+            "history": history.data,
+            "recipe_usage": recipe_usage.data,
+            "suppliers": suppliers.data
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo datos detallados: {str(e)}")
+        return {}
+
 def main():
     print("=== Iniciando programa principal ===")
     print("Ejecutando consultas a Supabase...")
