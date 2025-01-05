@@ -1,9 +1,8 @@
-from textwrap import dedent
+from phi.workflow import Workflow
 from phi.agent import Agent
 from phi.model.google import Gemini
-from typing import Dict, Any
-import json
-from datetime import datetime
+from typing import Dict, Any, Optional
+from pydantic import Field
 import logging
 import os
 from dotenv import load_dotenv
@@ -11,7 +10,6 @@ import numpy as np
 from scipy import stats
 import pandas as pd
 from statsmodels.tsa.seasonal import seasonal_decompose
-from sklearn.preprocessing import StandardScaler
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -34,42 +32,53 @@ def convert_numpy_types(obj):
         return obj.tolist()
     return obj
 
-class InventoryAnalysisSystem:
-    def __init__(self):
-        logger.info("Inicializando sistema de análisis técnico de inventario...")
-        self._initialize_agents()
+class InventoryAnalysisSystem(Workflow):
+    analyst: Optional[Agent] = Field(default=None)
+    advisor: Optional[Agent] = Field(default=None)
 
-    def _initialize_agents(self):
+    def __init__(self):
+        super().__init__()
+        logger.info("Inicializando sistema de análisis técnico de inventario...")
+        gemini_model = Gemini(api_key=GOOGLE_API_KEY)
+        self._initialize_agents(gemini_model)
+
+    def _initialize_agents(self, model):
+        """Inicializa los agentes de análisis"""
         try:
-            model = Gemini(api_key=os.getenv("GOOGLE_API_KEY"))
-            
-            self.agents = {
-                "analyst": Agent(
-                    name="TechnicalAnalyst",
-                    role="Analista técnico especializado en series temporales e inventario",
-                    model=model,
-                    description="Realizo análisis estadísticos avanzados de patrones de inventario y consumo",
-                    instructions=[
-                        "Realizar análisis estadístico detallado de patrones de uso",
-                        "Calcular métricas de variabilidad y estacionalidad",
-                        "Identificar anomalías y patrones significativos",
-                        "Evaluar la precisión de las predicciones",
-                        "Proporcionar intervalos de confianza para las estimaciones"
-                    ]
-                ),
-                "advisor": Agent(
-                    name="StrategyAdvisor",
-                    role="Asesor estratégico basado en análisis cuantitativo",
-                    model=model,
-                    description="Genero recomendaciones basadas en análisis matemático y estadístico",
-                    instructions=[
-                        "Basar recomendaciones en evidencia estadística",
-                        "Calcular impacto financiero de las recomendaciones",
-                        "Proponer estrategias de optimización con métricas específicas",
-                        "Considerar múltiples escenarios con probabilidades"
-                    ]
-                )
-            }
+            self.analyst = Agent(
+                name="TechnicalAnalyst",
+                role="Analista técnico especializado en series temporales e inventario",
+                model=model,
+                description="Realizo análisis estadísticos avanzados de patrones de inventario y consumo",
+                instructions=[
+                    "Realizar análisis estadístico detallado de patrones de uso",
+                    "Calcular métricas de variabilidad y estacionalidad",
+                    "Identificar anomalías y patrones significativos",
+                    "Evaluar la precisión de las predicciones",
+                    "Proporcionar intervalos de confianza para las estimaciones"
+                ],
+                add_history_to_messages=True,
+                add_datetime_to_instructions=True,
+                markdown=True,
+                debug_mode=False,
+            )
+
+            self.advisor = Agent(
+                name="StrategyAdvisor",
+                role="Asesor estratégico basado en análisis cuantitativo",
+                model=model,
+                description="Genero recomendaciones basadas en análisis matemático y estadístico",
+                instructions=[
+                    "Basar recomendaciones en evidencia estadística",
+                    "Calcular impacto financiero de las recomendaciones",
+                    "Proponer estrategias de optimización con métricas específicas",
+                    "Considerar múltiples escenarios con probabilidades"
+                ],
+                add_history_to_messages=True,
+                add_datetime_to_instructions=True,
+                markdown=True,
+                debug_mode=False,
+            )
             
         except Exception as e:
             logger.error(f"Error en inicialización: {str(e)}", exc_info=True)
@@ -94,7 +103,7 @@ class InventoryAnalysisSystem:
                 "mean": usage_series.mean(),
                 "median": usage_series.median(),
                 "std": usage_series.std(),
-                "cv": usage_series.std() / usage_series.mean() * 100,  # Coeficiente de variación
+                "cv": usage_series.std() / usage_series.mean() * 100,
                 "skewness": stats.skew(usage_series),
                 "kurtosis": stats.kurtosis(usage_series),
                 "trend_slope": np.polyfit(range(len(usage_series)), usage_series, 1)[0],
@@ -114,6 +123,7 @@ class InventoryAnalysisSystem:
             return {}
 
     def analyze_inventory(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Ejecuta el workflow de análisis de inventario"""
         try:
             # Realizar análisis estadístico
             stats_analysis = self._perform_statistical_analysis(context["history"])
@@ -166,8 +176,8 @@ class InventoryAnalysisSystem:
             """
 
             # Obtener análisis y recomendaciones
-            analysis = self.agents["analyst"].run(analysis_prompt)
-            recommendations = self.agents["advisor"].run(strategy_prompt)
+            analysis = self.analyst.run(analysis_prompt)
+            recommendations = self.advisor.run(strategy_prompt)
 
             return {
                 "status": "success",
