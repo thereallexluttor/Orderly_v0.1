@@ -46,33 +46,35 @@ class InventoryAnalysisSystem(Workflow):
         """Inicializa los agentes de análisis"""
         try:
             self.analyst = Agent(
-                name="TechnicalAnalyst",
-                role="Analista técnico especializado en series temporales e inventario",
-                model=model,
-                description="Realizo análisis estadísticos avanzados de patrones de inventario y consumo",
+                name="DataAnalyst",
+                role="Analista de datos especializado en análisis estadístico",
+                model=Gemini(id="gemini-1.5-flash"),
+                description="Realizo análisis estadísticos descriptivos y de series temporales",
                 instructions=[
-                    "Realizar análisis estadístico detallado de patrones de uso",
-                    "Calcular métricas de variabilidad y estacionalidad",
-                    "Identificar anomalías y patrones significativos",
-                    "Evaluar la precisión de las predicciones",
-                    "Proporcionar intervalos de confianza para las estimaciones"
+                    "Analizar exclusivamente los datos proporcionados sin hacer suposiciones",
+                    "Identificar patrones estadísticamente significativos en los datos",
+                    "Calcular y reportar métricas estadísticas clave",
+                    "Detectar outliers y anomalías basadas en z-scores",
+                    "Reportar hallazgos con intervalos de confianza cuando sea posible",
+                    "Mantener un enfoque puramente cuantitativo",
+                    "Agregar emojis al mensaje para que se vea más atractivo"
                 ],
-                
             )
 
             self.advisor = Agent(
-                name="StrategyAdvisor",
-                role="Asesor estratégico basado en análisis cuantitativo",
-                model=model,
-                description="Genero recomendaciones basadas en análisis matemático y estadístico",
+                name="AdvancedAnalyst",
+                role="Analista de datos avanzado especializado en correlaciones y patrones complejos",
+                model=Gemini(id="gemini-1.5-flash"),
+                description="Analizo patrones complejos y relaciones entre variables",
                 instructions=[
-                    "Basar recomendaciones en evidencia estadística",
-                    "Calcular impacto financiero de las recomendaciones",
-                    "Proponer estrategias de optimización con métricas específicas",
-                    "Considerar múltiples escenarios con probabilidades"
+                    "Realizar análisis de correlaciones entre variables",
+                    "Identificar patrones cíclicos y estacionales con significancia estadística",
+                    "Calcular métricas avanzadas de variabilidad y tendencias",
+                    "Analizar la descomposición de series temporales",
+                    "Reportar hallazgos basados únicamente en evidencia estadística",
+                    "Complementar el análisis base con insights más profundos",
+                    "agregar emojis al mensaje para que se vea más atractivo"
                 ],
-                team = [self.analyst]
-                
             )
             
         except Exception as e:
@@ -120,15 +122,13 @@ class InventoryAnalysisSystem(Workflow):
     def analyze_inventory(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Ejecuta el workflow de análisis de inventario"""
         try:
-            # Realizar análisis estadístico
             stats_analysis = self._perform_statistical_analysis(context["history"])
-            
-            # Convertir valores de NumPy a tipos nativos de Python
             stats_analysis = {k: convert_numpy_types(v) for k, v in stats_analysis.items()}
             
-            # Preparar prompt para el análisis técnico
+            # Prompt para análisis estadístico base
             analysis_prompt = f"""
-            {context['history']}
+            DATOS NUMÉRICOS PARA ANÁLISIS:
+            - Serie temporal de uso: {context['history']}
 
             📊 DATOS ESTADÍSTICOS:
             - Media de uso: {stats_analysis['mean']:.2f} {context['unit']}/día
@@ -143,36 +143,41 @@ class InventoryAnalysisSystem(Workflow):
             - Stock total: {context['total_stock']} {context['unit']}
             - Factor de seguridad: {context['safe_factor']}%
 
-            
+            Métricas estadísticas calculadas:
+            {stats_analysis}
+
+            Realiza un análisis puramente estadístico de estos datos. 
+            Reporta solo hallazgos respaldados por los números y tests estadísticos.
+            No hagas suposiciones ni recomendaciones.
             """
 
-            # Preparar prompt para recomendaciones estratégicas
-            strategy_prompt = f"""
-            proporciona recomendaciones basadas en datos para {context['ingredient_name']} usando emojis.
-            Evita usar asteriscos y mantén un balance entre precisión y claridad.
-
-            📈 MÉTRICAS CLAVE:
-            - Uso promedio: {stats_analysis['mean']:.2f} {context['unit']}/día
-            - Variabilidad: {stats_analysis['cv']:.2f}%
-            - Nivel actual: {context['current_stock']} {context['unit']}
-            - Capacidad máxima: {context['total_stock']} {context['unit']}
-            - Factor de seguridad: {context['safe_factor']}%
-
-            Proporciona:
-            1. 3-4 recomendaciones específicas con números y métricas
-            2. Estrategia de optimización de niveles de inventario
-            3. Plan de acción para manejar variabilidad
-            4. Puntos de reorden sugeridos con justificación
-            """
-
-            # Obtener análisis y recomendaciones
             analysis = self.analyst.run(analysis_prompt)
-            recommendations = self.advisor.run(analysis.content if hasattr(analysis, 'content') else str(analysis))
+
+            # Prompt para análisis avanzado
+            advanced_prompt = f"""
+            ANÁLISIS BASE PREVIO:
+            {analysis.content if hasattr(analysis, 'content') else str(analysis)}
+
+            DATOS ADICIONALES PARA ANÁLISIS AVANZADO:
+            - Serie temporal completa: {context['history']}
+            - Métricas calculadas: {stats_analysis}
+
+            Realiza un análisis estadístico avanzado enfocándote en:
+            1. Correlaciones significativas encontradas
+            2. Patrones cíclicos con significancia estadística
+            3. Componentes de la descomposición de series temporales
+            4. Análisis de variabilidad y tendencias
+            
+            Reporta solo hallazgos respaldados por tests estadísticos.
+            No incluyas suposiciones ni recomendaciones.
+            """
+            
+            advanced_analysis = self.advisor.run(advanced_prompt)
 
             return {
                 "status": "success",
                 "analysis": analysis.content if hasattr(analysis, 'content') else str(analysis),
-                "recommendations": recommendations.content if hasattr(recommendations, 'content') else str(recommendations),
+                "recommendations": advanced_analysis.content if hasattr(advanced_analysis, 'content') else str(advanced_analysis),
                 "statistical_data": stats_analysis
             }
 
@@ -181,7 +186,7 @@ class InventoryAnalysisSystem(Workflow):
             return {
                 "status": "error",
                 "message": str(e),
-                "analysis": "Error en análisis técnico",
-                "recommendations": "Error en recomendaciones"
+                "analysis": "Error en análisis estadístico",
+                "recommendations": "Error en análisis avanzado"
             }
 
