@@ -7,6 +7,11 @@ from datetime import datetime
 import logging
 import os
 from dotenv import load_dotenv
+import numpy as np
+from scipy import stats
+import pandas as pd
+from statsmodels.tsa.seasonal import seasonal_decompose
+from sklearn.preprocessing import StandardScaler
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -19,261 +24,164 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY no está configurada en las variables de entorno")
 
+def convert_numpy_types(obj):
+    """Convierte tipos de NumPy a tipos nativos de Python"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
 class InventoryAnalysisSystem:
     def __init__(self):
-        logger.info("Inicializando sistema de análisis de inventario...")
+        logger.info("Inicializando sistema de análisis técnico de inventario...")
         self._initialize_agents()
 
     def _initialize_agents(self):
         try:
-            logger.info("Configurando agentes con Gemini...")
+            model = Gemini(api_key=os.getenv("GOOGLE_API_KEY"))
             
-            if not GOOGLE_API_KEY:
-                raise ValueError("GOOGLE_API_KEY no está configurada")
-                
-            # Crear una instancia del modelo
-            try:
-                model = Gemini(api_key=GOOGLE_API_KEY)
-                logger.info("Modelo Gemini inicializado correctamente")
-            except Exception as e:
-                logger.error(f"Error inicializando modelo Gemini: {str(e)}")
-                raise
-            
-            # Crear los agentes
-            try:
-                self.agents = {}
-                
-                # Inicializar analista
-                self.agents["analyst"] = Agent(
-                    name="InventoryAnalyst",
-                    role="Analista experto en gestión de inventario de restaurantes",
+            self.agents = {
+                "analyst": Agent(
+                    name="TechnicalAnalyst",
+                    role="Analista técnico especializado en series temporales e inventario",
                     model=model,
-                    description="Analizo datos de inventario para identificar patrones, riesgos y oportunidades de optimización.",
+                    description="Realizo análisis estadísticos avanzados de patrones de inventario y consumo",
                     instructions=[
-                        "Analizar tendencias históricas y patrones de uso",
-                        "Evaluar eficiencia de proveedores y costos",
-                        "Identificar riesgos en la cadena de suministro",
-                        "Considerar el impacto en las recetas y la operación"
+                        "Realizar análisis estadístico detallado de patrones de uso",
+                        "Calcular métricas de variabilidad y estacionalidad",
+                        "Identificar anomalías y patrones significativos",
+                        "Evaluar la precisión de las predicciones",
+                        "Proporcionar intervalos de confianza para las estimaciones"
+                    ]
+                ),
+                "advisor": Agent(
+                    name="StrategyAdvisor",
+                    role="Asesor estratégico basado en análisis cuantitativo",
+                    model=model,
+                    description="Genero recomendaciones basadas en análisis matemático y estadístico",
+                    instructions=[
+                        "Basar recomendaciones en evidencia estadística",
+                        "Calcular impacto financiero de las recomendaciones",
+                        "Proponer estrategias de optimización con métricas específicas",
+                        "Considerar múltiples escenarios con probabilidades"
                     ]
                 )
-                logger.info("Agente analista inicializado")
-                
-                # Inicializar asesor
-                self.agents["advisor"] = Agent(
-                    name="InventoryAdvisor",
-                    role="Asesor estratégico de inventario gastronómico",
-                    model=model,
-                    description="Proporciono recomendaciones estratégicas basadas en análisis detallado del inventario.",
-                    instructions=[
-                        "Priorizar acciones basadas en impacto operativo",
-                        "Considerar factores estacionales y tendencias",
-                        "Optimizar niveles de stock y rotación",
-                        "Sugerir mejoras en relaciones con proveedores"
-                    ]
-                )
-                logger.info("Agente asesor inicializado")
-                
-            except Exception as e:
-                logger.error(f"Error creando agentes: {str(e)}")
-                raise
-            
-            # Verificar que los agentes se crearon correctamente
-            if not all(agent in self.agents for agent in ["analyst", "advisor"]):
-                raise ValueError("No se pudieron inicializar todos los agentes requeridos")
-                
-            logger.info("Sistema de agentes inicializado correctamente")
+            }
             
         except Exception as e:
-            logger.error(f"Error en inicialización de agentes: {str(e)}", exc_info=True)
-            raise ValueError(f"No se pudo inicializar el sistema de agentes: {str(e)}")
+            logger.error(f"Error en inicialización: {str(e)}", exc_info=True)
+            raise
+
+    def _perform_statistical_analysis(self, history_data: list) -> dict:
+        """Realiza análisis estadístico detallado de los datos históricos"""
+        try:
+            # Convertir datos históricos a DataFrame
+            df = pd.DataFrame(history_data)
+            df['created_at'] = pd.to_datetime(df['created_at'])
+            df = df.set_index('created_at').sort_index()
+            
+            # Análisis de series temporales
+            usage_series = df['quantity']
+            
+            # Descomposición de la serie temporal
+            decomposition = seasonal_decompose(usage_series, period=7, model='additive')
+            
+            # Calcular estadísticas descriptivas
+            stats_analysis = {
+                "mean": usage_series.mean(),
+                "median": usage_series.median(),
+                "std": usage_series.std(),
+                "cv": usage_series.std() / usage_series.mean() * 100,  # Coeficiente de variación
+                "skewness": stats.skew(usage_series),
+                "kurtosis": stats.kurtosis(usage_series),
+                "trend_slope": np.polyfit(range(len(usage_series)), usage_series, 1)[0],
+                "seasonality_strength": np.std(decomposition.seasonal) / np.std(usage_series),
+                "autocorrelation": usage_series.autocorr(),
+            }
+            
+            # Detección de anomalías
+            z_scores = np.abs(stats.zscore(usage_series))
+            anomalies = (z_scores > 3).sum()
+            stats_analysis["anomalies_count"] = anomalies
+            
+            return stats_analysis
+            
+        except Exception as e:
+            logger.error(f"Error en análisis estadístico: {str(e)}", exc_info=True)
+            return {}
 
     def analyze_inventory(self, context: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            logger.info(f"Iniciando análisis para ingrediente: {context.get('ingredient_name')}")
+            # Realizar análisis estadístico
+            stats_analysis = self._perform_statistical_analysis(context["history"])
             
-            # Extraer datos relevantes del contexto
-            basic_info = {
-                "ingredient_name": context.get("ingredient_name"),
-                "current_stock": context.get("current_stock"),
-                "total_stock": context.get("total_stock"),
-                "unit": context.get("unit"),
-                "safe_factor": context.get("safe_factor")
-            }
+            # Convertir valores de NumPy a tipos nativos de Python
+            stats_analysis = {k: convert_numpy_types(v) for k, v in stats_analysis.items()}
             
-            logger.info(f"Datos básicos: {json.dumps(basic_info, indent=2)}")
+            # Preparar prompt para el análisis técnico
+            analysis_prompt = f"""
+            proporciona un análisis claro para {context['ingredient_name']} usando emojis y datos concretos.
+            Usa los siguientes datos para tu análisis (evita usar asteriscos):
 
-            # Obtener historial y datos detallados
-            history_data = context.get("history", [])
-            recipe_data = context.get("recipe_usage", [])
-            supplier_data = context.get("suppliers", [])
-            
-            logger.info(f"Datos históricos disponibles: {len(history_data)} registros")
-            logger.info(f"Datos de recetas disponibles: {len(recipe_data)} registros")
-            logger.info(f"Datos de proveedores disponibles: {len(supplier_data)} registros")
+            📊 DATOS ESTADÍSTICOS:
+            - Media de uso: {stats_analysis['mean']:.2f} {context['unit']}/día
+            - Desviación estándar: {stats_analysis['std']:.2f}
+            - Coeficiente de variación: {stats_analysis['cv']:.2f}%
+            - Tendencia: {stats_analysis['trend_slope']:.2f}
+            - Estacionalidad: {stats_analysis['seasonality_strength']:.2f}
+            - Anomalías detectadas: {stats_analysis['anomalies_count']}
 
-            # Análisis detallado
-            logger.info("Solicitando análisis detallado al agente analista...")
-            analysis = self._get_detailed_analysis(
-                basic_info,
-                history_data,
-                recipe_data,
-                supplier_data
-            )
-            logger.info("Análisis detallado completado")
+            📦 INVENTARIO ACTUAL:
+            - Stock actual: {context['current_stock']} {context['unit']}
+            - Stock total: {context['total_stock']} {context['unit']}
+            - Factor de seguridad: {context['safe_factor']}%
 
-            # Recomendaciones basadas en el análisis
-            logger.info("Solicitando recomendaciones al agente asesor...")
-            recommendations = self._get_strategic_recommendations(
-                basic_info,
-                analysis,
-                history_data,
-                recipe_data,
-                supplier_data
-            )
-            logger.info("Recomendaciones completadas")
+            Proporciona:
+            1. Análisis de patrones de consumo con números específicos
+            2. Evaluación de la variabilidad y tendencias principales
+            3. Alertas sobre anomalías y sus causas probables
+            4. Proyección de consumo para próximos 7 días
+            """
 
-            result = {
+            # Preparar prompt para recomendaciones estratégicas
+            strategy_prompt = f"""
+            proporciona recomendaciones basadas en datos para {context['ingredient_name']} usando emojis.
+            Evita usar asteriscos y mantén un balance entre precisión y claridad.
+
+            📈 MÉTRICAS CLAVE:
+            - Uso promedio: {stats_analysis['mean']:.2f} {context['unit']}/día
+            - Variabilidad: {stats_analysis['cv']:.2f}%
+            - Nivel actual: {context['current_stock']} {context['unit']}
+            - Capacidad máxima: {context['total_stock']} {context['unit']}
+            - Factor de seguridad: {context['safe_factor']}%
+
+            Proporciona:
+            1. 3-4 recomendaciones específicas con números y métricas
+            2. Estrategia de optimización de niveles de inventario
+            3. Plan de acción para manejar variabilidad
+            4. Puntos de reorden sugeridos con justificación
+            """
+
+            # Obtener análisis y recomendaciones
+            analysis = self.agents["analyst"].run(analysis_prompt)
+            recommendations = self.agents["advisor"].run(strategy_prompt)
+
+            return {
                 "status": "success",
-                "analysis": analysis.strip() if isinstance(analysis, str) else "Error en análisis",
-                "recommendations": recommendations.strip() if isinstance(recommendations, str) else "Error en recomendaciones"
+                "analysis": analysis.content if hasattr(analysis, 'content') else str(analysis),
+                "recommendations": recommendations.content if hasattr(recommendations, 'content') else str(recommendations),
+                "statistical_data": stats_analysis
             }
-            
-            logger.info("Análisis de inventario completado exitosamente")
-            return result
 
         except Exception as e:
-            logger.error(f"Error en análisis de inventario: {str(e)}", exc_info=True)
+            logger.error(f"Error en análisis: {str(e)}", exc_info=True)
             return {
                 "status": "error",
                 "message": str(e),
-                "analysis": "Error al generar análisis",
-                "recommendations": "Error al generar recomendaciones"
+                "analysis": "Error en análisis técnico",
+                "recommendations": "Error en recomendaciones"
             }
-
-    def _get_detailed_analysis(self, basic_info: dict, history: list, recipes: list, suppliers: list) -> str:
-        try:
-            logger.info(f"Preparando prompt para análisis de {basic_info['ingredient_name']}")
-            
-            # Formatear los datos para el prompt
-            history_summary = json.dumps([{
-                "fecha": h.get("created_at", ""),
-                "cantidad": h.get("quantity", 0),
-                "tipo": h.get("type", "")
-            } for h in history[:10]], indent=2, ensure_ascii=False)  # Últimos 10 registros
-            
-            recipes_summary = json.dumps([{
-                "nombre": r.get("recipes", {}).get("name", ""),
-                "cantidad": r.get("quantity", 0)
-            } for r in recipes], indent=2, ensure_ascii=False)
-            
-            suppliers_summary = json.dumps([{
-                "nombre": s.get("name", ""),
-                "precio": s.get("price", 0),
-                "tiempo_entrega": s.get("delivery_time", "")
-            } for s in suppliers], indent=2, ensure_ascii=False)
-            
-            prompt = f"""
-            Analiza detalladamente el ingrediente {basic_info['ingredient_name']}:
-
-            DATOS BÁSICOS:
-            - Stock actual: {basic_info['current_stock']} {basic_info['unit']}
-            - Stock total: {basic_info['total_stock']} {basic_info['unit']}
-            - Factor de seguridad: {basic_info['safe_factor']}%
-
-            HISTORIAL DE MOVIMIENTOS (últimos 10):
-            {history_summary}
-
-            USO EN RECETAS:
-            {recipes_summary}
-
-            INFORMACIÓN DE PROVEEDORES:
-            {suppliers_summary}
-
-            REQUERIDO:
-            1. Análisis de tendencias de uso y rotación
-            2. Evaluación de la relación con proveedores
-            3. Impacto en las operaciones de cocina
-            4. Identificación de riesgos específicos
-
-            Por favor, proporciona un análisis detallado y estructurado.
-            """
-
-            logger.info("Enviando prompt al agente analista")
-            logger.debug(f"Prompt enviado: {prompt}")
-            
-            response = self.agents["analyst"].run(prompt)
-            logger.info("Respuesta recibida del agente analista")
-            
-            if not response:
-                logger.error("Respuesta del agente analista es None")
-                return "Error: No se pudo generar el análisis"
-            
-            if not hasattr(response, 'content'):
-                logger.error(f"Respuesta del agente analista no tiene contenido. Tipo de respuesta: {type(response)}")
-                if isinstance(response, str):
-                    return response
-                return "Error: Formato de respuesta inválido"
-            
-            logger.debug(f"Contenido de la respuesta: {response.content}")
-            return response.content
-
-        except Exception as e:
-            logger.error(f"Error en análisis detallado: {str(e)}", exc_info=True)
-            return f"Error en análisis: {str(e)}"
-
-    def _get_strategic_recommendations(self, basic_info: dict, analysis: str, 
-                                    history: list, recipes: list, suppliers: list) -> str:
-        try:
-            logger.info(f"Preparando prompt para recomendaciones de {basic_info['ingredient_name']}")
-            
-            # Formatear los datos para el prompt
-            history_count = len(history)
-            recipes_count = len(recipes)
-            suppliers_count = len(suppliers)
-            
-            prompt = f"""
-            Basado en el análisis previo para {basic_info['ingredient_name']}:
-
-            ANÁLISIS ACTUAL:
-            {analysis}
-
-            CONTEXTO ADICIONAL:
-            - Stock actual: {basic_info['current_stock']} {basic_info['unit']}
-            - Stock total: {basic_info['total_stock']} {basic_info['unit']}
-            - Factor de seguridad: {basic_info['safe_factor']}%
-            - Historial de movimientos: {history_count} registros
-            - Recetas que usan este ingrediente: {recipes_count}
-            - Proveedores disponibles: {suppliers_count}
-
-            REQUERIDO:
-            1. 2-3 recomendaciones estratégicas específicas
-            2. Acciones concretas con tiempos estimados
-            3. Sugerencias para optimizar costos y eficiencia
-            4. Consideraciones sobre proveedores y almacenamiento
-
-            Por favor, proporciona recomendaciones claras y accionables.
-            """
-
-            logger.info("Enviando prompt al agente asesor")
-            logger.debug(f"Prompt enviado: {prompt}")
-            
-            response = self.agents["advisor"].run(prompt)
-            logger.info("Respuesta recibida del agente asesor")
-            
-            if not response:
-                logger.error("Respuesta del agente asesor es None")
-                return "Error: No se pudieron generar recomendaciones"
-            
-            if not hasattr(response, 'content'):
-                logger.error(f"Respuesta del agente asesor no tiene contenido. Tipo de respuesta: {type(response)}")
-                if isinstance(response, str):
-                    return response
-                return "Error: Formato de respuesta inválido"
-            
-            logger.debug(f"Contenido de la respuesta: {response.content}")
-            return response.content
-
-        except Exception as e:
-            logger.error(f"Error en recomendaciones: {str(e)}", exc_info=True)
-            return f"Error en recomendaciones: {str(e)}"
 

@@ -302,8 +302,22 @@ def generate_dashboard_html(ingredients_data):
                 "suppliers": []      # You can add supplier data if available
             }
             
+            # Clean up AI insights formatting
+            def clean_ai_text(text):
+                # Remove asterisks and extra formatting
+                cleaned = text.replace('**', '')
+                cleaned = cleaned.replace('*', '')
+                # Remove emojis if present (optional)
+                cleaned = ''.join(char for char in cleaned if not (0x1F300 <= ord(char) <= 0x1F9FF))
+                # Split into paragraphs and clean up
+                paragraphs = [p.strip() for p in cleaned.split('\n') if p.strip()]
+                return '\n'.join(paragraphs)
+
+            # Format AI insights before adding to HTML
             ai_insights = inventory_ai.analyze_inventory(ai_context)
-            
+            formatted_analysis = clean_ai_text(ai_insights['analysis'])
+            formatted_recommendations = clean_ai_text(ai_insights['recommendations'])
+
             # Create ingredient section with AI insights
             section_html = f"""
             <div class="ingredient-section">
@@ -365,13 +379,13 @@ def generate_dashboard_html(ingredients_data):
                         <div class="insight-card analysis">
                             <h4>Análisis Detallado</h4>
                             <div class="insight-content">
-                                {ai_insights['analysis']}
+                                {formatted_analysis}
                             </div>
                         </div>
                         <div class="insight-card recommendations">
                             <h4>Recomendaciones Estratégicas</h4>
                             <div class="insight-content">
-                                {ai_insights['recommendations']}
+                                {formatted_recommendations}
                             </div>
                         </div>
                     </div>
@@ -426,6 +440,32 @@ def generate_dashboard_html(ingredients_data):
             font-size: 0.95em;
             line-height: 1.6;
             white-space: pre-line;
+        }
+        
+        .insight-content p {
+            margin: 0 0 12px 0;
+        }
+        
+        .insight-content p:last-child {
+            margin-bottom: 0;
+        }
+        
+        .insight-card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .insight-card h4 {
+            color: #2c3e50;
+            margin: 0 0 16px 0;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-bottom: 2px solid #e74c3c;
+            padding-bottom: 8px;
+            display: inline-block;
         }
         
         .analysis h4 {
