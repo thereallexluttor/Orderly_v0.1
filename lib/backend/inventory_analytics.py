@@ -716,42 +716,6 @@ def generate_dashboard_html(ingredients_data):
     <html>
     <head>
         <title>Dashboard de Análisis de Inventario</title>
-        <script>
-            // Configuración global de animaciones para Plotly
-            window.addEventListener('load', function() {{
-                const graphs = document.querySelectorAll('.js-plotly-plot');
-                graphs.forEach(graph => {{
-                    graph._context.responsive = true;
-                    graph._context.displayModeBar = false;
-                    
-                    // Animar al hacer hover
-                    graph.on('plotly_hover', function() {{
-                        graph.transition {{
-                            duration: 500,
-                            easing: 'cubic-in-out'
-                        }}
-                    }});
-                    
-                    // Animación inicial
-                    setTimeout(() => {{
-                        Plotly.animate(graph, {{
-                            data: graph.data,
-                            traces: [0],
-                            layout: {{}},
-                        }}, {{
-                            transition: {{
-                                duration: 1000,
-                                easing: 'cubic-in-out'
-                            }},
-                            frame: {{
-                                duration: 1000,
-                                redraw: true
-                            }}
-                        }});
-                    }}, 500);
-                }});
-            }});
-        </script>
         <style>
             body {{
                 font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -852,12 +816,162 @@ def generate_dashboard_html(ingredients_data):
                 font-weight: bold;
             }}
             {additional_styles}
+
+            /* Add only loading and animation related styles */
+            .loading-overlay {{
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #fff;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                transition: opacity 0.5s ease-out;
+            }}
+
+            .loading-overlay.hidden {{
+                opacity: 0;
+                pointer-events: none;
+            }}
+
+            .loader {{
+                width: 48px;
+                height: 48px;
+                border: 5px solid #3498db;
+                border-bottom-color: transparent;
+                border-radius: 50%;
+                animation: rotation 1s linear infinite;
+            }}
+
+            @keyframes rotation {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+
+            .content {{
+                opacity: 0;
+                transition: opacity 0.5s ease-in;
+            }}
+
+            .content.visible {{
+                opacity: 1;
+            }}
         </style>
     </head>
     <body>
-        <h1>Dashboard de Análisis de Inventario</h1>
-        {global_analysis_html}
-        {''.join(ingredient_sections)}
+        <!-- Add loading overlay -->
+        <div class="loading-overlay">
+            <div class="loader"></div>
+        </div>
+
+        <!-- Wrap existing content -->
+        <div class="content">
+            <h1>Dashboard de Análisis de Inventario</h1>
+            {global_analysis_html}
+            {''.join(ingredient_sections)}
+        </div>
+
+        <script>
+            // Function to check if all Plotly graphs are rendered
+            function areAllGraphsRendered() {{
+                const graphs = document.querySelectorAll('.js-plotly-plot');
+                // Si no hay gráficos, consideramos que está listo
+                if (graphs.length === 0) return true;
+                
+                return Array.from(graphs).every(graph => {{     
+                    // Verificar si el gráfico está completamente renderizado
+                    return graph.querySelector('.plot-container') !== null &&
+                           graph.querySelector('.main-svg') !== null;
+                }});
+            }}
+
+            // Function to show content and hide loader
+            function showContent() {{
+                document.querySelector('.loading-overlay').classList.add('hidden');
+                document.querySelector('.content').classList.add('visible');
+                
+                // Start text animations after content is visible
+                startTextAnimations();
+            }}
+
+            // Function to handle text animations
+            function startTextAnimations() {{
+                const animatedTexts = document.querySelectorAll('.animated-text');
+                animatedTexts.forEach((element, index) => {{
+                    element.style.opacity = '0';
+                    element.style.transform = 'translateY(20px)';
+                    
+                    setTimeout(() => {{
+                        element.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                        element.style.opacity = '1';
+                        element.style.transform = 'translateY(0)';
+                    }}, index * 100);
+                }});
+            }}
+
+            // Wait for everything to load
+            window.addEventListener('load', function() {{
+                let attempts = 0;
+                const maxAttempts = 50; // 5 segundos máximo (50 * 100ms)
+
+                // Check if Plotly is loaded and graphs are rendered
+                const checkGraphs = setInterval(() => {{
+                    attempts++;
+                    
+                    // Si los gráficos están renderizados o alcanzamos el máximo de intentos
+                    if (areAllGraphsRendered() || attempts >= maxAttempts) {{
+                        clearInterval(checkGraphs);
+                        console.log('Graphs loaded or timeout reached');
+                        showContent();
+                    }}
+                }}, 100);
+
+                // Configure Plotly graphs
+                const graphs = document.querySelectorAll('.js-plotly-plot');
+                graphs.forEach(graph => {{
+                    if (graph && graph._context) {{
+                        graph._context.responsive = true;
+                        graph._context.displayModeBar = false;
+                        
+                        graph.on('plotly_hover', function() {{
+                            graph.transition({{
+                                duration: 500,
+                                easing: 'cubic-in-out'
+                            }});
+                        }});
+                    }}
+                }});
+
+                // Intentar animar los gráficos después de un breve retraso
+                setTimeout(() => {{
+                    graphs.forEach(graph => {{
+                        if (graph && graph.data) {{
+                            try {{
+                                Plotly.animate(graph, {{
+                                    data: graph.data,
+                                    traces: [0],
+                                    layout: {{}},
+                                }}, {{
+                                    transition: {{
+                                        duration: 1000,
+                                        easing: 'cubic-in-out'
+                                    }},
+                                    frame: {{
+                                        duration: 1000,
+                                        redraw: true
+                                    }}
+                                }});
+                            }} catch (e) {{
+                                console.log('Animation error:', e);
+                            }}
+                        }}
+                    }});
+                }}, 1000);
+            }});
+        </script>
     </body>
     </html>
     """
