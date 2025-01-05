@@ -288,6 +288,10 @@ def generate_dashboard_html(ingredients_data):
                         line = f'<h2 class="bold-header">{line.replace("**", "")}</h2>'
                     elif line.startswith('* **') and line.endswith('**'):
                         line = f'<h3 class="bold-header">{line.replace("* **", "").replace("**", "")}</h3>'
+                    # Handle inline asterisks like *text*
+                    elif '*' in line:
+                        while '*' in line:
+                            line = line.replace('*', '<em>', 1).replace('*', '</em>', 1)
                 # Format regular headers
                 elif line.startswith('##'):
                     line = f'<h3>{line.replace("##", "").strip()}</h3>'
@@ -319,24 +323,30 @@ def generate_dashboard_html(ingredients_data):
                     width: 100%;
                     border-collapse: collapse;
                     background: white;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                    border: 1px solid #e1e1e1;
                 }
                 
                 .analysis-table th,
                 .analysis-table td {
                     padding: 12px;
                     text-align: left;
-                    border-bottom: 1px solid #eee;
+                    border: 1px solid #e1e1e1;
                 }
                 
                 .analysis-table th {
                     background: #f8f9fa;
                     font-weight: 600;
                     color: #2c3e50;
+                    border-bottom: 2px solid #ddd;
                 }
                 
                 .analysis-table tr:hover {
                     background: #f8f9fa;
+                }
+                
+                .analysis-table tr:nth-child(even) {
+                    background-color: #f9f9f9;
                 }
                 
                 .risk-critical {
@@ -355,6 +365,12 @@ def generate_dashboard_html(ingredients_data):
                     border-bottom: 2px solid #3498db;
                     display: inline-block;
                     margin-bottom: 16px;
+                }
+                
+                em {
+                    font-style: italic;
+                    color: #34495e;
+                    font-weight: 500;
                 }
             """
             
@@ -529,7 +545,24 @@ def generate_dashboard_html(ingredients_data):
             color: #34495e;
             font-size: 0.95em;
             line-height: 1.6;
-            white-space: pre-line;
+            font-style: italic;
+            font-weight: 400;
+        }
+        
+        .insight-content h2,
+        .insight-content h3,
+        .insight-content strong {
+            font-style: normal;
+        }
+        
+        .insight-content em {
+            font-style: italic;
+            color: #34495e;
+            font-weight: 500;
+        }
+        
+        .insight-content .analysis-table {
+            font-style: normal;
         }
         
         .insight-content p {
