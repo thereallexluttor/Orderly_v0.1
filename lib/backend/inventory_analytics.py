@@ -236,6 +236,9 @@ def generate_dashboard_html(ingredients_data):
             in_table = False
             table_html = []
             
+            # Añadir contador para los delays de animación
+            animation_delay = 0
+            
             for line in lines:
                 line = line.strip()
                 if not line:
@@ -281,30 +284,30 @@ def generate_dashboard_html(ingredients_data):
                     formatted_lines.append('\n'.join(table_html))
                     table_html = []
                     
-                # Format headers with asterisks
+                # Format headers and text with animation delays
                 if '**' in line:
-                    # Handle headers with ** or * **
                     if line.startswith('**') and line.endswith('**'):
-                        line = f'<h2 class="bold-header">{line.replace("**", "")}</h2>'
+                        line = f'<h2 class="animated-text" style="animation-delay: {animation_delay}s">{line.replace("**", "")}</h2>'
                     elif line.startswith('* **') and line.endswith('**'):
-                        line = f'<h3 class="bold-header">{line.replace("* **", "").replace("**", "")}</h3>'
-                    # Handle inline asterisks like *text*
+                        line = f'<h3 class="animated-text" style="animation-delay: {animation_delay}s">{line.replace("* **", "").replace("**", "")}</h3>'
                     elif '*' in line:
                         while '*' in line:
                             line = line.replace('*', '<em>', 1).replace('*', '</em>', 1)
-                # Format regular headers
+                        line = f'<p class="animated-text" style="animation-delay: {animation_delay}s">{line}</p>'
                 elif line.startswith('##'):
-                    line = f'<h3>{line.replace("##", "").strip()}</h3>'
+                    line = f'<h3 class="animated-text" style="animation-delay: {animation_delay}s">{line.replace("##", "").strip()}</h3>'
                 elif line.startswith('#'):
-                    line = f'<h2>{line.replace("#", "").strip()}</h2>'
-                # Format numbered lists
+                    line = f'<h2 class="animated-text" style="animation-delay: {animation_delay}s">{line.replace("#", "").strip()}</h2>'
                 elif line[0].isdigit() and line[1] == '.':
                     number = line[0]
                     rest = line[2:].strip()
-                    line = f'<p><strong>{number}.</strong> {rest}</p>'
+                    line = f'<p class="animated-text" style="animation-delay: {animation_delay}s"><strong>{number}.</strong> {rest}</p>'
                 else:
-                    line = f'<p>{line}</p>'
-                    
+                    line = f'<p class="animated-text" style="animation-delay: {animation_delay}s">{line}</p>'
+                
+                # Incrementar el delay para la siguiente línea
+                animation_delay += 0.5
+                
                 formatted_lines.append(line)
             
             # Handle case where text ends with a table
@@ -372,6 +375,85 @@ def generate_dashboard_html(ingredients_data):
                     color: #34495e;
                     font-weight: 500;
                 }
+
+                /* Animación de escritura estilo ChatGPT */
+                .typing-animation {
+                    width: 100%;
+                }
+
+                .typing-animation p,
+                .typing-animation h2,
+                .typing-animation h3 {
+                    overflow: hidden;
+                    white-space: pre-wrap;
+                    border-right: 2px solid transparent;
+                    margin: 0;
+                    display: inline-block;
+                    width: 0;
+                    animation: typing 2s steps(60, end) forwards;
+                }
+
+                .typing-animation p:not(:last-child),
+                .typing-animation h2:not(:last-child),
+                .typing-animation h3:not(:last-child) {
+                    margin-bottom: 0.5em;
+                }
+
+                @keyframes typing {
+                    from { 
+                        width: 0;
+                        opacity: 0;
+                    }
+                    to { 
+                        width: 100%;
+                        opacity: 1;
+                    }
+                }
+
+                .typing-animation p:nth-child(1) { animation-delay: 0.1s; }
+                .typing-animation p:nth-child(2) { animation-delay: 1.5s; }
+                .typing-animation p:nth-child(3) { animation-delay: 3s; }
+                .typing-animation p:nth-child(4) { animation-delay: 4.5s; }
+                .typing-animation p:nth-child(5) { animation-delay: 6s; }
+                .typing-animation h2 { animation-delay: 0.5s; }
+                .typing-animation h3 { animation-delay: 2s; }
+
+                /* Cursor parpadeante */
+                .typing-cursor {
+                    display: inline-block;
+                    width: 2px;
+                    height: 1em;
+                    background: #3498db;
+                    margin-left: 2px;
+                    animation: blink 1s step-end infinite;
+                }
+
+                @keyframes blink {
+                    from, to { opacity: 1; }
+                    50% { opacity: 0; }
+                }
+
+                /* Asegurarse que el contenedor tenga el espacio adecuado */
+                .insight-content {
+                    min-height: 200px;
+                    position: relative;
+                }
+
+                .animated-text {
+                    opacity: 0;
+                    animation: fadeInTyping 1s ease forwards;
+                }
+                
+                @keyframes fadeInTyping {
+                    from {
+                        opacity: 0;
+                        transform: translateY(10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
             """
             
             return '\n'.join(formatted_lines)
@@ -386,13 +468,13 @@ def generate_dashboard_html(ingredients_data):
             <div class="insights-grid">
                 <div class="insight-card analysis">
                     <h4>Análisis General</h4>
-                    <div class="insight-content">
+                    <div class="insight-content typing-animation">
                         {formatted_analysis}
                     </div>
                 </div>
                 <div class="insight-card recommendations">
                     <h4>Recomendaciones Estratégicas</h4>
-                    <div class="insight-content">
+                    <div class="insight-content typing-animation">
                         {formatted_recommendations}
                     </div>
                 </div>

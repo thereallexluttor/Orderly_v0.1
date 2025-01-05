@@ -186,7 +186,8 @@ class InventoryAnalysisSystem(Workflow):
             4. Estrategias de abastecimiento
             5. Priorización de acciones
 
-            Enfócate en recomendaciones respaldadas por los datos analizados.
+            Enfócate en recomendaciones respaldadas por los datos analizados. no me quieras decir que no puedes hacer algo, si puedes hacerlo.
+            no me des recomendaciones en sistemas o herramientas, solo me des recomendaciones en acciones concretas que pueda hacer con lo que tengo.
             """
 
             recommendations = self.advisor.run(recommendations_prompt)
