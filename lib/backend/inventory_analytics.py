@@ -227,11 +227,138 @@ def generate_dashboard_html(ingredients_data):
 
         # Format AI insights
         def clean_ai_text(text):
-            cleaned = text.replace('**', '')
-            cleaned = cleaned.replace('*', '')
-            cleaned = ''.join(char for char in cleaned if not (0x1F300 <= ord(char) <= 0x1F9FF))
-            paragraphs = [p.strip() for p in cleaned.split('\n') if p.strip()]
-            return '\n'.join(paragraphs)
+            # Remove emoji characters
+            cleaned = ''.join(char for char in text if not (0x1F300 <= ord(char) <= 0x1F9FF))
+            
+            # Format markdown-style headers and text
+            lines = cleaned.split('\n')
+            formatted_lines = []
+            in_table = False
+            table_html = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Handle table formatting
+                if '|' in line:
+                    if not in_table:
+                        in_table = True
+                        table_html = ['<div class="table-container"><table class="analysis-table">']
+                    
+                    # Skip separator lines (|----|)
+                    if line.replace('|', '').replace('-', '').strip() == '':
+                        continue
+                        
+                    # Process table row
+                    cells = [cell.strip() for cell in line.split('|')]
+                    cells = [cell for cell in cells if cell]  # Remove empty cells
+                    
+                    is_header = any('---' in cell for cell in cells)
+                    if not is_header:
+                        row_html = '<tr>'
+                        for cell in cells:
+                            # Check if it's the header row (usually the first row)
+                            if table_html[-1] == '<div class="table-container"><table class="analysis-table">':
+                                row_html += f'<th>{cell}</th>'
+                            else:
+                                # Add color coding for risk levels
+                                if 'CRÍTICO' in cell:
+                                    row_html += f'<td class="risk-critical">{cell}</td>'
+                                elif 'PRECAUCIÓN' in cell:
+                                    row_html += f'<td class="risk-warning">{cell}</td>'
+                                else:
+                                    row_html += f'<td>{cell}</td>'
+                        row_html += '</tr>'
+                        table_html.append(row_html)
+                    continue
+                    
+                elif in_table:
+                    # End table processing
+                    in_table = False
+                    table_html.append('</table></div>')
+                    formatted_lines.append('\n'.join(table_html))
+                    table_html = []
+                    
+                # Format headers with asterisks
+                if '**' in line:
+                    # Handle headers with ** or * **
+                    if line.startswith('**') and line.endswith('**'):
+                        line = f'<h2 class="bold-header">{line.replace("**", "")}</h2>'
+                    elif line.startswith('* **') and line.endswith('**'):
+                        line = f'<h3 class="bold-header">{line.replace("* **", "").replace("**", "")}</h3>'
+                # Format regular headers
+                elif line.startswith('##'):
+                    line = f'<h3>{line.replace("##", "").strip()}</h3>'
+                elif line.startswith('#'):
+                    line = f'<h2>{line.replace("#", "").strip()}</h2>'
+                # Format numbered lists
+                elif line[0].isdigit() and line[1] == '.':
+                    number = line[0]
+                    rest = line[2:].strip()
+                    line = f'<p><strong>{number}.</strong> {rest}</p>'
+                else:
+                    line = f'<p>{line}</p>'
+                    
+                formatted_lines.append(line)
+            
+            # Handle case where text ends with a table
+            if in_table:
+                table_html.append('</table></div>')
+                formatted_lines.append('\n'.join(table_html))
+            
+            # Add these styles to the additional_styles string
+            additional_styles = """
+                .table-container {
+                    margin: 20px 0;
+                    overflow-x: auto;
+                }
+                
+                .analysis-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background: white;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                }
+                
+                .analysis-table th,
+                .analysis-table td {
+                    padding: 12px;
+                    text-align: left;
+                    border-bottom: 1px solid #eee;
+                }
+                
+                .analysis-table th {
+                    background: #f8f9fa;
+                    font-weight: 600;
+                    color: #2c3e50;
+                }
+                
+                .analysis-table tr:hover {
+                    background: #f8f9fa;
+                }
+                
+                .risk-critical {
+                    color: #e74c3c;
+                    font-weight: 600;
+                }
+                
+                .risk-warning {
+                    color: #f39c12;
+                    font-weight: 600;
+                }
+                
+                .bold-header {
+                    font-weight: 700;
+                    color: #2c3e50;
+                    border-bottom: 2px solid #3498db;
+                    display: inline-block;
+                    margin-bottom: 16px;
+                }
+            """
+            
+            return '\n'.join(formatted_lines)
 
         formatted_analysis = clean_ai_text(global_analysis['analysis'])
         formatted_recommendations = clean_ai_text(global_analysis['recommendations'])
@@ -437,6 +564,34 @@ def generate_dashboard_html(ingredients_data):
         
         .recommendations h4 {
             border-color: #2ecc71;
+        }
+        
+        .insight-content h2 {
+            font-size: 1.3em;
+            color: #2c3e50;
+            margin: 16px 0 12px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .insight-content h3 {
+            font-size: 1.1em;
+            color: #34495e;
+            margin: 14px 0 10px 0;
+        }
+        
+        .insight-content p {
+            margin: 8px 0;
+            line-height: 1.6;
+        }
+        
+        .insight-content strong {
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        .insight-content p strong {
+            color: #e74c3c;
         }
     """
 
