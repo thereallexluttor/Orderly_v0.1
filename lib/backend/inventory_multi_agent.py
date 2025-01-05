@@ -35,7 +35,6 @@ def convert_numpy_types(obj):
 
 class InventoryAnalysisSystem(Workflow):
     analyst: Optional[Agent] = Field(default=None)
-    advisor: Optional[Agent] = Field(default=None)
 
     def __init__(self):
         super().__init__()
@@ -58,25 +57,15 @@ class InventoryAnalysisSystem(Workflow):
                     "Generar alertas cuando el consumo supere 2 desviaciones estándar",
                     "Priorizar análisis de ingredientes con mayor impacto en operaciones",
                     "Calcular probabilidades específicas de desabastecimiento",
+                    "Proporciona una tabla con los datos de los ingredientes y las recomendaciones.",
                     "Identificar desperdicios y sobrestock con métricas precisas",
-                    "Agregar niveles de urgencia (🔴CRÍTICO, 🟡PRECAUCIÓN, 🟢NORMAL) a cada hallazgo"
-                ],
-            )
-
-            self.advisor = Agent(
-                name="AdvancedAnalyst",
-                role="Estratega matemático para análisis avanzado de inventario",
-                model=Gemini(id="gemini-1.5-flash"),
-                description="Realizo análisis matemáticos y estadísticos avanzados para optimizar inventario",
-                instructions=[
-                    "Realiza análisis avanzados basados puramente en estadísticas y matemáticas.",
-                    "Explora correlaciones, regresiones lineales y no lineales entre variables del inventario.",
-                    "Identifica patrones estacionales o tendencias utilizando series temporales.",
-                    "Evalúa la fuerza y significancia de los patrones detectados, usando métricas estadísticas como R^2 o p-value.",
-                    "Propón acciones basadas en el análisis matemático, priorizando datos objetivos y métricas derivadas.",
-                    "Calcula intervalos de confianza para proyecciones de inventario.",
-                    "Detecta comportamientos anómalos en las métricas analizadas (z-score, IQR, etc.).",
-                    "Genera métricas avanzadas para evaluar la estabilidad y confiabilidad del inventario."
+                    "Agregar niveles de urgencia (🔴CRÍTICO, 🟡PRECAUCIÓN, 🟢NORMAL) a cada hallazgo",
+                    "Realizar análisis avanzados basados en estadísticas y matemáticas",
+                    "Explorar correlaciones y tendencias en los datos",
+                    "Calcular intervalos de confianza para proyecciones",
+                    "Detectar comportamientos anómalos usando métricas estadísticas",
+                    "no ejemplos de codigo o ejemplos de implementaciones.",
+                    "Usar los datos proporcionados para realizar los calculos matematicos y estadisticos."
                 ],
             )
             
@@ -136,7 +125,6 @@ class InventoryAnalysisSystem(Workflow):
             all_stats = [{k: convert_numpy_types(v) for k, v in stats.items()} 
                         for stats in all_stats]
 
-            # Prompt para análisis global
             analysis_prompt = f"""
             ANÁLISIS GLOBAL DEL INVENTARIO
 
@@ -155,44 +143,43 @@ class InventoryAnalysisSystem(Workflow):
                 'stock_total': i['total_stock'],
                 'unidad': i['unit'],
                 'uso_promedio': i['average_daily_usage'],
-                'uso_máximo': i['max_daily_usage']
+                'uso_máximo': i['max_daily_usage'],
+                'historial': i['history']
             } for i in context['ingredients']], indent=2)}
+            Realiza un análisis global del inventario para los próximos 7 días siguiendo estas instrucciones:
 
-            Realiza un análisis global del inventario considerando:
-            1. Patrones generales de uso entre ingredientes
-            2. Correlaciones entre diferentes ingredientes
-            3. Identificación de grupos de ingredientes con comportamiento similar
-            4. Análisis de riesgos y puntos críticos
-            5. Tendencias globales del inventario
-
-            Proporciona un análisis puramente estadístico, matematico y analitico basado en los datos.
+            1. Analiza el estado general del inventario y sus métricas principales
+               - Proyecta consumos esperados a 7 días
+               - Identifica riesgos de desabastecimiento en la próxima semana
+            
+            2. Genera una tabla detallada que incluya:
+               - Datos actuales de cada ingrediente
+               - Proyección de stock para los próximos 7 días
+               - Recomendaciones específicas por ingrediente
+            
+            3. Desarrolla un análisis estadístico y matemático que incluya:
+               - Métricas estadísticas descriptivas
+               - Pronósticos a 7 días de tendencias y patrones
+               - Modelos matemáticos de predicción semanal
+               - Ecuaciones utilizadas para proyecciones
+            
+            4. Realiza análisis tanto individuales como agregados usando:
+               - Datos históricos para predicción semanal
+               - Patrones de consumo proyectados a 7 días
+               - Correlaciones entre ingredientes y su impacto semanal
+            
+            5. Enfócate exclusivamente en:
+               - Cálculos matemáticos predictivos a 7 días
+               - Análisis estadísticos con proyecciones semanales
+               - No incluir ejemplos de código o implementaciones
             """
 
             analysis = self.analyst.run(analysis_prompt)
 
-            # Prompt para recomendaciones globales
-            recommendations_prompt = f"""
-            ANÁLISIS PREVIO:
-            {analysis.content if hasattr(analysis, 'content') else str(analysis)}
-
-            DATOS ADICIONALES:
-            {json.dumps(context, indent=2)}
-
-            Basándote en el análisis anterior, proporciona recomendaciones puramente matemáticas y estadísticas usando los datos que tienes disponibles sobre
-            los ingredientes tales como:
-            1. Cómo clasificar ingredientes según su estabilidad (usando coeficiente de variación y desviación estándar).
-            2. Métodos para identificar patrones comunes usando clustering o análisis de componentes principales (PCA).
-            3. Identificación de series temporales no estacionarias y sugerencias para estabilizarlas.
-            4. Proyecciones para los próximos 30 días con intervalos de confianza (ej.: 95%).
-            5. Acciones concretas para mejorar la precisión del análisis de tendencias.
-            """
-
-            recommendations = self.advisor.run(recommendations_prompt)
-
             return {
                 "status": "success",
                 "analysis": analysis.content if hasattr(analysis, 'content') else str(analysis),
-                "recommendations": recommendations.content if hasattr(recommendations, 'content') else str(recommendations),
+                "recommendations": "",  # Empty since we removed the advisor
                 "statistical_data": all_stats
             }
 
@@ -202,5 +189,5 @@ class InventoryAnalysisSystem(Workflow):
                 "status": "error",
                 "message": str(e),
                 "analysis": "Error en análisis estadístico global",
-                "recommendations": "Error en recomendaciones globales"
+                "recommendations": ""
             }

@@ -306,7 +306,7 @@ def generate_dashboard_html(ingredients_data):
                     line = f'<p class="animated-text" style="animation-delay: {animation_delay}s">{line}</p>'
                 
                 # Incrementar el delay para la siguiente línea
-                animation_delay += 0.5
+                animation_delay += 0.8
                 
                 formatted_lines.append(line)
             
@@ -390,7 +390,7 @@ def generate_dashboard_html(ingredients_data):
                     margin: 0;
                     display: inline-block;
                     width: 0;
-                    animation: typing 2s steps(60, end) forwards;
+                    animation: typing 3s steps(60, end) forwards;
                 }
 
                 .typing-animation p:not(:last-child),
@@ -410,13 +410,13 @@ def generate_dashboard_html(ingredients_data):
                     }
                 }
 
-                .typing-animation p:nth-child(1) { animation-delay: 0.1s; }
-                .typing-animation p:nth-child(2) { animation-delay: 1.5s; }
-                .typing-animation p:nth-child(3) { animation-delay: 3s; }
-                .typing-animation p:nth-child(4) { animation-delay: 4.5s; }
-                .typing-animation p:nth-child(5) { animation-delay: 6s; }
-                .typing-animation h2 { animation-delay: 0.5s; }
-                .typing-animation h3 { animation-delay: 2s; }
+                .typing-animation p:nth-child(1) { animation-delay: 0.2s; }
+                .typing-animation p:nth-child(2) { animation-delay: 2.0s; }
+                .typing-animation p:nth-child(3) { animation-delay: 3.8s; }
+                .typing-animation p:nth-child(4) { animation-delay: 5.6s; }
+                .typing-animation p:nth-child(5) { animation-delay: 7.4s; }
+                .typing-animation h2 { animation-delay: 1.0s; }
+                .typing-animation h3 { animation-delay: 2.8s; }
 
                 /* Cursor parpadeante */
                 .typing-cursor {
@@ -441,15 +441,18 @@ def generate_dashboard_html(ingredients_data):
 
                 .animated-text {
                     opacity: 0;
-                    animation: fadeInTyping 1s ease forwards;
+                    animation: fadeInTyping 1.5s ease forwards;
                 }
                 
                 @keyframes fadeInTyping {
-                    from {
+                    0% {
                         opacity: 0;
                         transform: translateY(10px);
                     }
-                    to {
+                    50% {
+                        opacity: 0.5;
+                    }
+                    100% {
                         opacity: 1;
                         transform: translateY(0);
                     }
@@ -459,7 +462,6 @@ def generate_dashboard_html(ingredients_data):
             return '\n'.join(formatted_lines)
 
         formatted_analysis = clean_ai_text(global_analysis['analysis'])
-        formatted_recommendations = clean_ai_text(global_analysis['recommendations'])
 
         # Create global analysis section
         global_analysis_html = f"""
@@ -470,12 +472,6 @@ def generate_dashboard_html(ingredients_data):
                     <h4>Análisis General</h4>
                     <div class="insight-content typing-animation">
                         {formatted_analysis}
-                    </div>
-                </div>
-                <div class="insight-card recommendations">
-                    <h4>Recomendaciones Estratégicas</h4>
-                    <div class="insight-content typing-animation">
-                        {formatted_recommendations}
                     </div>
                 </div>
             </div>
