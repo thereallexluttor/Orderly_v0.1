@@ -10,6 +10,7 @@ import numpy as np
 from scipy import stats
 import pandas as pd
 from statsmodels.tsa.seasonal import seasonal_decompose
+import json
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -47,33 +48,36 @@ class InventoryAnalysisSystem(Workflow):
         try:
             self.analyst = Agent(
                 name="DataAnalyst",
-                role="Analista de datos especializado en análisis estadístico",
+                role="Analista especializado en detección de riesgos de inventario y patrones de consumo",
                 model=Gemini(id="gemini-1.5-flash"),
-                description="Realizo análisis estadísticos descriptivos y de series temporales",
+                description="Analizo patrones críticos de consumo y genero alertas tempranas de desabastecimiento",
                 instructions=[
-                    "Analizar exclusivamente los datos proporcionados sin hacer suposiciones",
-                    "Identificar patrones estadísticamente significativos en los datos",
-                    "Calcular y reportar métricas estadísticas clave",
-                    "Detectar outliers y anomalías basadas en z-scores",
-                    "Reportar hallazgos con intervalos de confianza cuando sea posible",
-                    "Mantener un enfoque puramente cuantitativo",
-                    "Agregar emojis al mensaje para que se vea más atractivo"
+                    "Identificar INMEDIATAMENTE cualquier riesgo de desabastecimiento",
+                    "Calcular agresivamente puntos de reorden y niveles críticos de stock",
+                    "Detectar y reportar urgentemente patrones anormales de consumo",
+                    "Generar alertas cuando el consumo supere 2 desviaciones estándar",
+                    "Priorizar análisis de ingredientes con mayor impacto en operaciones",
+                    "Calcular probabilidades específicas de desabastecimiento",
+                    "Identificar desperdicios y sobrestock con métricas precisas",
+                    "Agregar niveles de urgencia (🔴CRÍTICO, 🟡PRECAUCIÓN, 🟢NORMAL) a cada hallazgo"
                 ],
             )
 
             self.advisor = Agent(
                 name="AdvancedAnalyst",
-                role="Analista de datos avanzado especializado en correlaciones y patrones complejos",
+                role="Estratega de optimización de inventario y predicción de demanda",
                 model=Gemini(id="gemini-1.5-flash"),
-                description="Analizo patrones complejos y relaciones entre variables",
+                description="Desarrollo estrategias agresivas de optimización de inventario",
                 instructions=[
-                    "Realizar análisis de correlaciones entre variables",
-                    "Identificar patrones cíclicos y estacionales con significancia estadística",
-                    "Calcular métricas avanzadas de variabilidad y tendencias",
-                    "Analizar la descomposición de series temporales",
-                    "Reportar hallazgos basados únicamente en evidencia estadística",
-                    "Complementar el análisis base con insights más profundos",
-                    "agregar emojis al mensaje para que se vea más atractivo"
+                    "Generar predicciones específicas de demanda con intervalos de confianza",
+                    "Identificar oportunidades INMEDIATAS de reducción de costos",
+                    "Calcular el impacto financiero exacto de cada recomendación",
+                    "Proponer cambios drásticos pero fundamentados en los patrones detectados",
+                    "Establecer KPIs específicos para cada categoría de ingredientes",
+                    "Detectar correlaciones críticas entre ingredientes para compras conjuntas",
+                    "Sugerir reorganizaciones agresivas del inventario basadas en uso",
+                    "Marcar cada recomendación con ROI esperado y tiempo de implementación",
+                    "Usar emojis para prioridad: 💰(ahorro), ⚠️(riesgo), 🚀(optimización)"
                 ],
             )
             
@@ -119,74 +123,87 @@ class InventoryAnalysisSystem(Workflow):
             logger.error(f"Error en análisis estadístico: {str(e)}", exc_info=True)
             return {}
 
-    def analyze_inventory(self, context: Dict[str, Any]) -> Dict[str, Any]:
-        """Ejecuta el workflow de análisis de inventario"""
+    def analyze_inventory_global(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Ejecuta el workflow de análisis global de inventario"""
         try:
-            stats_analysis = self._perform_statistical_analysis(context["history"])
-            stats_analysis = {k: convert_numpy_types(v) for k, v in stats_analysis.items()}
-            
-            # Prompt para análisis estadístico base
+            # Calcular estadísticas globales
+            all_stats = []
+            for ingredient in context['ingredients']:
+                stats = self._perform_statistical_analysis(ingredient['history'])
+                stats['ingredient_name'] = ingredient['ingredient_name']
+                all_stats.append(stats)
+
+            # Convertir a tipos nativos de Python
+            all_stats = [{k: convert_numpy_types(v) for k, v in stats.items()} 
+                        for stats in all_stats]
+
+            # Prompt para análisis global
             analysis_prompt = f"""
-            DATOS NUMÉRICOS PARA ANÁLISIS:
-            - Serie temporal de uso: {context['history']}
+            ANÁLISIS GLOBAL DEL INVENTARIO
 
-            📊 DATOS ESTADÍSTICOS:
-            - Media de uso: {stats_analysis['mean']:.2f} {context['unit']}/día
-            - Desviación estándar: {stats_analysis['std']:.2f}
-            - Coeficiente de variación: {stats_analysis['cv']:.2f}%
-            - Tendencia: {stats_analysis['trend_slope']:.2f}
-            - Estacionalidad: {stats_analysis['seasonality_strength']:.2f}
-            - Anomalías detectadas: {stats_analysis['anomalies_count']}
+            Datos generales:
+            - Total de ingredientes: {len(context['ingredients'])}
+            - Ingredientes en estado crítico: {sum(1 for i in context['ingredients'] if i['stock_status'] == 'crítico')}
+            - Ingredientes en estado normal: {sum(1 for i in context['ingredients'] if i['stock_status'] == 'normal')}
 
-            📦 INVENTARIO ACTUAL:
-            - Stock actual: {context['current_stock']} {context['unit']}
-            - Stock total: {context['total_stock']} {context['unit']}
-            - Factor de seguridad: {context['safe_factor']}%
+            ESTADÍSTICAS POR INGREDIENTE:
+            {json.dumps(all_stats, indent=2)}
 
-            Métricas estadísticas calculadas:
-            {stats_analysis}
+            DATOS DE INVENTARIO ACTUAL:
+            {json.dumps([{
+                'nombre': i['ingredient_name'],
+                'stock_actual': i['current_stock'],
+                'stock_total': i['total_stock'],
+                'unidad': i['unit'],
+                'uso_promedio': i['average_daily_usage'],
+                'uso_máximo': i['max_daily_usage']
+            } for i in context['ingredients']], indent=2)}
 
-            Realiza un análisis puramente estadístico de estos datos. 
-            Reporta solo hallazgos respaldados por los números y tests estadísticos.
-            No hagas suposiciones ni recomendaciones.
+            Realiza un análisis global del inventario considerando:
+            1. Patrones generales de uso entre ingredientes
+            2. Correlaciones entre diferentes ingredientes
+            3. Identificación de grupos de ingredientes con comportamiento similar
+            4. Análisis de riesgos y puntos críticos
+            5. Tendencias globales del inventario
+
+            Proporciona un análisis puramente estadístico basado en los datos.
             """
 
             analysis = self.analyst.run(analysis_prompt)
 
-            # Prompt para análisis avanzado
-            advanced_prompt = f"""
-            ANÁLISIS BASE PREVIO:
+            # Prompt para recomendaciones globales
+            recommendations_prompt = f"""
+            ANÁLISIS PREVIO:
             {analysis.content if hasattr(analysis, 'content') else str(analysis)}
 
-            DATOS ADICIONALES PARA ANÁLISIS AVANZADO:
-            - Serie temporal completa: {context['history']}
-            - Métricas calculadas: {stats_analysis}
+            DATOS ADICIONALES:
+            {json.dumps(context, indent=2)}
 
-            Realiza un análisis estadístico avanzado enfocándote en:
-            1. Correlaciones significativas encontradas
-            2. Patrones cíclicos con significancia estadística
-            3. Componentes de la descomposición de series temporales
-            4. Análisis de variabilidad y tendencias
-            
-            Reporta solo hallazgos respaldados por tests estadísticos.
-            No incluyas suposiciones ni recomendaciones.
+            Basándote en el análisis anterior, proporciona recomendaciones estratégicas para:
+            1. Optimización global del inventario
+            2. Gestión de riesgos identificados
+            3. Mejora de eficiencia en el uso de ingredientes
+            4. Estrategias de abastecimiento
+            5. Priorización de acciones
+
+            Enfócate en recomendaciones respaldadas por los datos analizados.
             """
-            
-            advanced_analysis = self.advisor.run(advanced_prompt)
+
+            recommendations = self.advisor.run(recommendations_prompt)
 
             return {
                 "status": "success",
                 "analysis": analysis.content if hasattr(analysis, 'content') else str(analysis),
-                "recommendations": advanced_analysis.content if hasattr(advanced_analysis, 'content') else str(advanced_analysis),
-                "statistical_data": stats_analysis
+                "recommendations": recommendations.content if hasattr(recommendations, 'content') else str(recommendations),
+                "statistical_data": all_stats
             }
 
         except Exception as e:
-            logger.error(f"Error en análisis: {str(e)}", exc_info=True)
+            logger.error(f"Error en análisis global: {str(e)}", exc_info=True)
             return {
                 "status": "error",
                 "message": str(e),
-                "analysis": "Error en análisis estadístico",
-                "recommendations": "Error en análisis avanzado"
+                "analysis": "Error en análisis estadístico global",
+                "recommendations": "Error en recomendaciones globales"
             }
 

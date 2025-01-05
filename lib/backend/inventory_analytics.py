@@ -198,8 +198,70 @@ async def get_dashboard():
         )
 
 def generate_dashboard_html(ingredients_data):
-    ingredient_sections = []
+    # Add global AI analysis at the top
+    try:
+        # Prepare context with all ingredients data
+        all_ingredients_context = {
+            "ingredients": [
+                {
+                    "ingredient_name": data['ingredient_name'],
+                    "current_stock": data['current_stock'],
+                    "total_stock": data['total_stock'],
+                    "unit": data['unit'],
+                    "safe_factor": data['safe_factor'],
+                    "history": [
+                        {"created_at": date, "quantity": usage, "type": "usage"} 
+                        for date, usage in data['usage_history'].items()
+                    ],
+                    "average_daily_usage": data['average_daily_usage'],
+                    "max_daily_usage": data['max_daily_usage'],
+                    "stock_status": data['stock_status']
+                }
+                for ingredient_id, data in ingredients_data.items()
+            ]
+        }
 
+        # Get global AI analysis - solo una vez para todos los ingredientes
+        inventory_ai = InventoryAnalysisSystem()
+        global_analysis = inventory_ai.analyze_inventory_global(all_ingredients_context)
+
+        # Format AI insights
+        def clean_ai_text(text):
+            cleaned = text.replace('**', '')
+            cleaned = cleaned.replace('*', '')
+            cleaned = ''.join(char for char in cleaned if not (0x1F300 <= ord(char) <= 0x1F9FF))
+            paragraphs = [p.strip() for p in cleaned.split('\n') if p.strip()]
+            return '\n'.join(paragraphs)
+
+        formatted_analysis = clean_ai_text(global_analysis['analysis'])
+        formatted_recommendations = clean_ai_text(global_analysis['recommendations'])
+
+        # Create global analysis section
+        global_analysis_html = f"""
+        <div class="global-analysis-section">
+            <h2>Análisis Global del Inventario</h2>
+            <div class="insights-grid">
+                <div class="insight-card analysis">
+                    <h4>Análisis General</h4>
+                    <div class="insight-content">
+                        {formatted_analysis}
+                    </div>
+                </div>
+                <div class="insight-card recommendations">
+                    <h4>Recomendaciones Estratégicas</h4>
+                    <div class="insight-content">
+                        {formatted_recommendations}
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+    except Exception as e:
+        logger.error(f"Error generating global analysis: {str(e)}")
+        global_analysis_html = "<div>Error generating global analysis</div>"
+
+    # Continue with individual ingredient sections (solo gráficas y métricas, sin análisis de IA)
+    ingredient_sections = []
     for ingredient_id, data in ingredients_data.items():
         try:
             # Create usage history dataframe
@@ -213,14 +275,7 @@ def generate_dashboard_html(ingredients_data):
             usage_fig = px.line(df, x='ds', y='y', 
                               title=f"Uso Histórico",
                               labels={'ds': 'Fecha', 'y': f"Uso ({data['unit']})"})
-            usage_fig.update_layout(
-                showlegend=False,
-                transition_duration=1000,
-                transition={
-                    'duration': 1000,
-                    'easing': 'cubic-in-out'
-                }
-            )
+            usage_fig.update_layout(showlegend=False)
             
             # 2. Generate Prophet predictions
             m = Prophet(yearly_seasonality=True, weekly_seasonality=True)
@@ -229,96 +284,22 @@ def generate_dashboard_html(ingredients_data):
             forecast = m.predict(future)
             
             pred_fig = go.Figure()
-            pred_fig.add_trace(go.Scatter(
-                x=df['ds'], 
-                y=df['y'], 
-                name='Histórico',
-                mode='lines',
-                line=dict(width=2)
-            ))
-            pred_fig.add_trace(go.Scatter(
-                x=forecast['ds'], 
-                y=forecast['yhat'], 
-                name='Predicción',
-                mode='lines',
-                line=dict(width=2)
-            ))
-            pred_fig.add_trace(go.Scatter(
-                x=forecast['ds'], 
-                y=forecast['yhat_upper'],
-                fill=None, 
-                mode='lines', 
-                line_color='rgba(0,100,80,0.2)',
-                name='Límite Superior'
-            ))
-            pred_fig.add_trace(go.Scatter(
-                x=forecast['ds'], 
-                y=forecast['yhat_lower'],
-                fill='tonexty', 
-                mode='lines', 
-                line_color='rgba(0,100,80,0.2)',
-                name='Límite Inferior'
-            ))
-            
-            pred_fig.update_layout(
-                title="Pronóstico de Uso",
-                xaxis_title="Fecha",
-                yaxis_title=f"Uso ({data['unit']})",
-                transition_duration=1000,
-                transition={
-                    'duration': 1000,
-                    'easing': 'cubic-in-out'
-                }
-            )
+            pred_fig.add_trace(go.Scatter(x=df['ds'], y=df['y'], name='Histórico'))
+            pred_fig.add_trace(go.Scatter(x=forecast['ds'], y=forecast['yhat'], name='Predicción'))
+            pred_fig.update_layout(title="Pronóstico de Uso")
 
-            # 3. Generate insights
-            last_30_days = df[df['ds'] > df['ds'].max() - timedelta(days=30)]
-            recent_trend = last_30_days['y'].mean() - df['y'].mean()
-            peak_usage = forecast[forecast['ds'] > datetime.now()]['yhat'].max()
-            
-            # Calculate new metrics using total_stock and safe_factor
+            # Calculate metrics
             safe_threshold = data['total_stock'] * (data['safe_factor'] / 100)
             current_stock = data['current_stock']
             stock_percentage = (current_stock / data['total_stock']) * 100
             days_until_empty = current_stock / data['average_daily_usage'] if data['average_daily_usage'] > 0 else float('inf')
             
-            # Determine stock status color
             status_color = (
-                '#e74c3c' if current_stock < safe_threshold else  # red
-                '#f1c40f' if current_stock < (data['total_stock'] * 0.3) else  # yellow
-                '#2ecc71'  # green
+                '#e74c3c' if current_stock < safe_threshold else
+                '#f1c40f' if current_stock < (data['total_stock'] * 0.3) else
+                '#2ecc71'
             )
 
-            # Add AI Analysis
-            ai_context = {
-                "ingredient_name": data['ingredient_name'],
-                "current_stock": data['current_stock'],
-                "total_stock": data['total_stock'],
-                "unit": data['unit'],
-                "safe_factor": data['safe_factor'],
-                "history": [{"created_at": date, "quantity": usage, "type": "usage"} 
-                           for date, usage in data['usage_history'].items()],
-                "recipe_usage": [],  # You can add recipe data if available
-                "suppliers": []      # You can add supplier data if available
-            }
-            
-            # Clean up AI insights formatting
-            def clean_ai_text(text):
-                # Remove asterisks and extra formatting
-                cleaned = text.replace('**', '')
-                cleaned = cleaned.replace('*', '')
-                # Remove emojis if present (optional)
-                cleaned = ''.join(char for char in cleaned if not (0x1F300 <= ord(char) <= 0x1F9FF))
-                # Split into paragraphs and clean up
-                paragraphs = [p.strip() for p in cleaned.split('\n') if p.strip()]
-                return '\n'.join(paragraphs)
-
-            # Format AI insights before adding to HTML
-            ai_insights = inventory_ai.analyze_inventory(ai_context)
-            formatted_analysis = clean_ai_text(ai_insights['analysis'])
-            formatted_recommendations = clean_ai_text(ai_insights['recommendations'])
-
-            # Create ingredient section with AI insights
             section_html = f"""
             <div class="ingredient-section">
                 <div class="ingredient-header">
@@ -370,24 +351,6 @@ def generate_dashboard_html(ingredients_data):
                     </div>
                     <div class="chart-container">
                         {pred_fig.to_html(full_html=False)}
-                    </div>
-                </div>
-
-                <div class="ai-insights">
-                    <h3>Análisis de IA</h3>
-                    <div class="insights-grid">
-                        <div class="insight-card analysis">
-                            <h4>Análisis Detallado</h4>
-                            <div class="insight-content">
-                                {formatted_analysis}
-                            </div>
-                        </div>
-                        <div class="insight-card recommendations">
-                            <h4>Recomendaciones Estratégicas</h4>
-                            <div class="insight-content">
-                                {formatted_recommendations}
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -623,6 +586,7 @@ def generate_dashboard_html(ingredients_data):
     </head>
     <body>
         <h1>Dashboard de Análisis de Inventario</h1>
+        {global_analysis_html}
         {''.join(ingredient_sections)}
     </body>
     </html>
