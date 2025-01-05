@@ -57,10 +57,7 @@ class InventoryAnalysisSystem(Workflow):
                     "Evaluar la precisión de las predicciones",
                     "Proporcionar intervalos de confianza para las estimaciones"
                 ],
-                add_history_to_messages=True,
-                add_datetime_to_instructions=True,
-                markdown=True,
-                debug_mode=False,
+                
             )
 
             self.advisor = Agent(
@@ -74,10 +71,8 @@ class InventoryAnalysisSystem(Workflow):
                     "Proponer estrategias de optimización con métricas específicas",
                     "Considerar múltiples escenarios con probabilidades"
                 ],
-                add_history_to_messages=True,
-                add_datetime_to_instructions=True,
-                markdown=True,
-                debug_mode=False,
+                team = [self.analyst]
+                
             )
             
         except Exception as e:
@@ -133,8 +128,7 @@ class InventoryAnalysisSystem(Workflow):
             
             # Preparar prompt para el análisis técnico
             analysis_prompt = f"""
-            proporciona un análisis claro para {context['ingredient_name']} usando emojis y datos concretos.
-            Usa los siguientes datos para tu análisis (evita usar asteriscos):
+            {context['history']}
 
             📊 DATOS ESTADÍSTICOS:
             - Media de uso: {stats_analysis['mean']:.2f} {context['unit']}/día
@@ -149,11 +143,7 @@ class InventoryAnalysisSystem(Workflow):
             - Stock total: {context['total_stock']} {context['unit']}
             - Factor de seguridad: {context['safe_factor']}%
 
-            Proporciona:
-            1. Análisis de patrones de consumo con números específicos
-            2. Evaluación de la variabilidad y tendencias principales
-            3. Alertas sobre anomalías y sus causas probables
-            4. Proyección de consumo para próximos 7 días
+            
             """
 
             # Preparar prompt para recomendaciones estratégicas
@@ -177,7 +167,7 @@ class InventoryAnalysisSystem(Workflow):
 
             # Obtener análisis y recomendaciones
             analysis = self.analyst.run(analysis_prompt)
-            recommendations = self.advisor.run(strategy_prompt)
+            recommendations = self.advisor.run(analysis.content if hasattr(analysis, 'content') else str(analysis))
 
             return {
                 "status": "success",
