@@ -65,19 +65,18 @@ class InventoryAnalysisSystem(Workflow):
 
             self.advisor = Agent(
                 name="AdvancedAnalyst",
-                role="Estratega de optimización de inventario y predicción de demanda",
+                role="Estratega matemático para análisis avanzado de inventario",
                 model=Gemini(id="gemini-1.5-flash"),
-                description="Desarrollo estrategias agresivas de optimización de inventario",
+                description="Realizo análisis matemáticos y estadísticos avanzados para optimizar inventario",
                 instructions=[
-                    "Generar predicciones específicas de demanda con intervalos de confianza",
-                    "Identificar oportunidades INMEDIATAS de reducción de costos",
-                    "Calcular el impacto financiero exacto de cada recomendación",
-                    "Proponer cambios drásticos pero fundamentados en los patrones detectados",
-                    "Establecer KPIs específicos para cada categoría de ingredientes",
-                    "Detectar correlaciones críticas entre ingredientes para compras conjuntas",
-                    "Sugerir reorganizaciones agresivas del inventario basadas en uso",
-                    "Marcar cada recomendación con ROI esperado y tiempo de implementación",
-                    "Usar emojis para prioridad: 💰(ahorro), ⚠️(riesgo), 🚀(optimización)"
+                    "Realiza análisis avanzados basados puramente en estadísticas y matemáticas.",
+                    "Explora correlaciones, regresiones lineales y no lineales entre variables del inventario.",
+                    "Identifica patrones estacionales o tendencias utilizando series temporales.",
+                    "Evalúa la fuerza y significancia de los patrones detectados, usando métricas estadísticas como R^2 o p-value.",
+                    "Propón acciones basadas en el análisis matemático, priorizando datos objetivos y métricas derivadas.",
+                    "Calcula intervalos de confianza para proyecciones de inventario.",
+                    "Detecta comportamientos anómalos en las métricas analizadas (z-score, IQR, etc.).",
+                    "Genera métricas avanzadas para evaluar la estabilidad y confiabilidad del inventario."
                 ],
             )
             
@@ -166,7 +165,7 @@ class InventoryAnalysisSystem(Workflow):
             4. Análisis de riesgos y puntos críticos
             5. Tendencias globales del inventario
 
-            Proporciona un análisis puramente estadístico basado en los datos.
+            Proporciona un análisis puramente estadístico, matematico y analitico basado en los datos.
             """
 
             analysis = self.analyst.run(analysis_prompt)
@@ -179,15 +178,13 @@ class InventoryAnalysisSystem(Workflow):
             DATOS ADICIONALES:
             {json.dumps(context, indent=2)}
 
-            Basándote en el análisis anterior, proporciona recomendaciones estratégicas para:
-            1. Optimización global del inventario
-            2. Gestión de riesgos identificados
-            3. Mejora de eficiencia en el uso de ingredientes
-            4. Estrategias de abastecimiento
-            5. Priorización de acciones
-
-            Enfócate en recomendaciones respaldadas por los datos analizados. no me quieras decir que no puedes hacer algo, si puedes hacerlo.
-            no me des recomendaciones en sistemas o herramientas, solo me des recomendaciones en acciones concretas que pueda hacer con lo que tengo.
+            Basándote en el análisis anterior, proporciona recomendaciones puramente matemáticas y estadísticas usando los datos que tienes disponibles sobre
+            los ingredientes tales como:
+            1. Cómo clasificar ingredientes según su estabilidad (usando coeficiente de variación y desviación estándar).
+            2. Métodos para identificar patrones comunes usando clustering o análisis de componentes principales (PCA).
+            3. Identificación de series temporales no estacionarias y sugerencias para estabilizarlas.
+            4. Proyecciones para los próximos 30 días con intervalos de confianza (ej.: 95%).
+            5. Acciones concretas para mejorar la precisión del análisis de tendencias.
             """
 
             recommendations = self.advisor.run(recommendations_prompt)
@@ -207,4 +204,3 @@ class InventoryAnalysisSystem(Workflow):
                 "analysis": "Error en análisis estadístico global",
                 "recommendations": "Error en recomendaciones globales"
             }
-
