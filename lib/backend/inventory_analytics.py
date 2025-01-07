@@ -19,6 +19,10 @@ from inventory_queries import (
     get_detailed_ingredient_data
 )
 from inventory_multi_agent import InventoryAnalysisSystem
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
+import numpy as np
+from typing import Dict, Any
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +60,83 @@ def convert_to_serializable(obj):
     elif isinstance(obj, pd.Series):
         return obj.to_dict()
     return obj
+
+def predict_safety_coefficients(ingredients_data: Dict[str, Any]) -> Dict[str, float]:
+    """
+    Predice coeficientes de seguridad óptimos basados en patrones históricos
+    """
+    try:
+        predictions = {}
+        
+        for ingredient_id, data in ingredients_data.items():
+            # Preparar características para el modelo
+            features = []
+            usage_history = data.get('usage_history', {})
+            
+            if not usage_history:
+                continue
+                
+            # Convertir historial a series temporales
+            dates = sorted(usage_history.keys())
+            usage_values = [usage_history[date] for date in dates]
+            
+            # Calcular características
+            avg_usage = np.mean(usage_values)
+            std_usage = np.std(usage_values)
+            max_usage = np.max(usage_values)
+            current_stock = data.get('current_stock', 0)
+            total_stock = data.get('total_stock', 0)
+            stock_ratio = current_stock / total_stock if total_stock > 0 else 0
+            
+            # Crear vector de características
+            X = np.array([[
+                avg_usage,
+                std_usage,
+                max_usage,
+                stock_ratio,
+                len(usage_values)  # número de días con datos
+            ]])
+            
+            # Normalizar características
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X)
+            
+            # Entrenar modelo
+            model = RandomForestRegressor(n_estimators=100, random_state=42)
+            
+            # Generar datos sintéticos para entrenamiento basados en patrones observados
+            synthetic_X = []
+            synthetic_y = []
+            
+            for _ in range(100):
+                rand_avg = np.random.normal(avg_usage, std_usage/2)
+                rand_std = std_usage * np.random.uniform(0.8, 1.2)
+                rand_max = max_usage * np.random.uniform(0.9, 1.1)
+                rand_ratio = np.random.uniform(0.1, 1.0)
+                rand_days = np.random.randint(10, len(usage_values) + 20)
+                
+                synthetic_X.append([rand_avg, rand_std, rand_max, rand_ratio, rand_days])
+                
+                # Calcular coeficiente de seguridad sintético
+                safety_coef = 100 * (1.5 * rand_std / rand_avg) * (1 - rand_ratio)
+                safety_coef = min(max(safety_coef, 10), 50)  # limitar entre 10% y 50%
+                synthetic_y.append(safety_coef)
+            
+            # Entrenar modelo con datos sintéticos
+            model.fit(synthetic_X, synthetic_y)
+            
+            # Predecir coeficiente de seguridad
+            predicted_coef = model.predict(X_scaled)[0]
+            
+            # Ajustar predicción a rango válido
+            predicted_coef = min(max(predicted_coef, 10), 50)
+            predictions[ingredient_id] = predicted_coef
+            
+        return predictions
+        
+    except Exception as e:
+        logger.error(f"Error predicting safety coefficients: {str(e)}")
+        return {}
 
 @app.get("/ingredient-usage/{ingredient_id}")
 async def get_ingredient_usage_endpoint(ingredient_id: int, current_stock: float):
@@ -110,13 +191,24 @@ async def get_ingredient_usage_endpoint(ingredient_id: int, current_stock: float
                 detail=f"No se encontraron datos de uso para el ingrediente {ingredient_id}"
             )
 
+        # Añadir predicciones de IA
+        safety_coefficients = predict_safety_coefficients({str(ingredient_id): item})
+        predicted_safety_coef = safety_coefficients.get(str(ingredient_id))
+        
+        if predicted_safety_coef:
+            item['predicted_safety_factor'] = predicted_safety_coef
+            
         return {
             "status": "success",
             "data": {
                 "ingredient": item,
                 "usage_data": usage_data,
                 "current_stock": current_stock,
-                "total_usage": ingredient_usage.get(ingredient_id, 0)
+                "total_usage": ingredient_usage.get(ingredient_id, 0),
+                "ai_predictions": {
+                    "predicted_safety_factor": predicted_safety_coef,
+                    "confidence_score": model.score(synthetic_X, synthetic_y) if 'model' in locals() else None
+                }
             }
         }
 
@@ -467,12 +559,10 @@ def generate_dashboard_html(ingredients_data):
         global_analysis_html = f"""
         <div class="global-analysis-section">
             <h2>Análisis Global del Inventario</h2>
-            <div class="insights-grid">
-                <div class="insight-card analysis">
-                    <h4>Análisis General</h4>
-                    <div class="insight-content typing-animation">
-                        {formatted_analysis}
-                    </div>
+            <div class="insight-card analysis">
+                <h4>Análisis General</h4>
+                <div class="insight-content typing-animation">
+                    {formatted_analysis}
                 </div>
             </div>
         </div>
@@ -971,6 +1061,85 @@ def generate_dashboard_html(ingredients_data):
     </body>
     </html>
     """
+    
+    # Generar tabla de predicciones de IA
+    safety_coefficients = predict_safety_coefficients(ingredients_data)
+    
+    ai_predictions_table = """
+    <div class="ai-predictions-section">
+        <h2>Predicciones de IA - Coeficientes de Seguridad</h2>
+        <div class="table-container">
+            <table class="analysis-table">
+                <thead>
+                    <tr>
+                        <th>Ingrediente</th>
+                        <th>Coeficiente Actual</th>
+                        <th>Coeficiente Recomendado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
+    
+    for ingredient_id, data in ingredients_data.items():
+        predicted_coef = safety_coefficients.get(str(ingredient_id))
+        current_coef = data.get('safe_factor', 0)
+        
+        if predicted_coef:
+            difference = abs(predicted_coef - current_coef)
+            status = (
+                '<span class="status-critical">Ajuste Necesario</span>' if difference > 10
+                else '<span class="status-warning">Revisar</span>' if difference > 5
+                else '<span class="status-good">Óptimo</span>'
+            )
+            
+            ai_predictions_table += f"""
+                <tr>
+                    <td>{data['ingredient_name']}</td>
+                    <td>{current_coef:.1f}%</td>
+                    <td>{predicted_coef:.1f}%</td>
+                    <td>{status}</td>
+                </tr>
+            """
+    
+    ai_predictions_table += """
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+    
+    # Add these styles to the additional_styles
+    additional_styles += """
+        .ai-predictions-section {
+            margin: 32px 0;
+            padding: 24px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-critical {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+        
+        .status-warning {
+            color: #f39c12;
+            font-weight: 600;
+        }
+        
+        .status-good {
+            color: #2ecc71;
+            font-weight: 600;
+        }
+    """
+    
+    # Insert the AI predictions table after the global analysis section
+    dashboard_html = dashboard_html.replace(
+        '{global_analysis_html}',
+        f'{global_analysis_html}\n{ai_predictions_table}'
+    )
     
     return dashboard_html
 

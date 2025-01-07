@@ -1,6 +1,8 @@
 from phi.workflow import Workflow
 from phi.agent import Agent
 from phi.model.google import Gemini
+from phi.tools.pandas import PandasTools
+from phi.tools.python import PythonTools
 from typing import Dict, Any, Optional
 from pydantic import Field
 import logging
@@ -65,8 +67,13 @@ class InventoryAnalysisSystem(Workflow):
                     "Calcular intervalos de confianza para proyecciones",
                     "Detectar comportamientos anómalos usando métricas estadísticas",
                     "no ejemplos de codigo o ejemplos de implementaciones.",
-                    "Usar los datos proporcionados para realizar los calculos matematicos y estadisticos."
+                    "Usar los datos proporcionados para realizar los calculos matematicos y estadisticos.",
+                    "genera algunas tablas con tus hallazgos y recomendaciones."
                 ],
+                tools=[PythonTools()]
+                
+
+
             )
             
         except Exception as e:
@@ -146,32 +153,7 @@ class InventoryAnalysisSystem(Workflow):
                 'uso_máximo': i['max_daily_usage'],
                 'historial': i['history']
             } for i in context['ingredients']], indent=2)}
-            Realiza un análisis global del inventario para los próximos 7 días siguiendo estas instrucciones:
-
-            1. Analiza el estado general del inventario y sus métricas principales
-               - Proyecta consumos esperados a 7 días
-               - Identifica riesgos de desabastecimiento en la próxima semana
-            
-            2. Genera una tabla detallada que incluya:
-               - Datos actuales de cada ingrediente
-               - Proyección de stock para los próximos 7 días
-               - Recomendaciones específicas por ingrediente
-            
-            3. Desarrolla un análisis estadístico y matemático que incluya:
-               - Métricas estadísticas descriptivas
-               - Pronósticos a 7 días de tendencias y patrones
-               - Modelos matemáticos de predicción semanal
-               - Ecuaciones utilizadas para proyecciones
-            
-            4. Realiza análisis tanto individuales como agregados usando:
-               - Datos históricos para predicción semanal
-               - Patrones de consumo proyectados a 7 días
-               - Correlaciones entre ingredientes y su impacto semanal
-            
-            5. Enfócate exclusivamente en:
-               - Cálculos matemáticos predictivos a 7 días
-               - Análisis estadísticos con proyecciones semanales
-               - No incluir ejemplos de código o implementaciones
+            Realiza un análisis global del inventario para los próximos 7 días
             """
 
             analysis = self.analyst.run(analysis_prompt)
